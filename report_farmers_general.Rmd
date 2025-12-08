@@ -1,5 +1,6 @@
 ---
-title: "Data for `r params$Farmer`"
+title: "Verslag microplastic analyse MiCoS"
+subtitle: "Data for `r params$Farmer`"
 output: pdf_document
 params:
    Farmer: MC24_008
@@ -7,9 +8,13 @@ params:
 
 ```{r}
 library(dplyr)
+library(tidyr)
 ```
 
-# INTRODUCTION
+# INTRODUCTIE
+
+Binnen het MiCos project werden in 2023 240 velden in België, Nederland en Luxemburg stalen genomen voor microplastic analyse. 
+
 
 Within the micos project, 240 fields were sampled and different data (nutrients, soil texture, ...) were sampled. The goal is to create a report for each of these fields and thus for the farmer containg all this unique data. 
 
@@ -17,6 +22,9 @@ It is suggested that **parametrized reports** are the way to go. Therefore, this
 
 The idea is that within the yaml (first part of this document between the three dots) you specify a parameter (params: Farmer) whereby the data will be filtered on this parameter setting. In another script, the report will be rendered multiple times. 
 
+```{r}
+library(dplyr)
+```
 
 # EXAMPLE
 
@@ -28,15 +36,22 @@ path <- ("./raw_data")
 
 # Create full pathways to necessary data files
 path_nutrients <- file.path(path, "Nutrient_data.csv")
-
+path_farmers <- file.path(path, "sampling_farmer_information.csv")
 
 ## Check if paths exists
-file.exists(path_nutrients)
+file.exists(path_nutrients, path_farmers)
 ```
 
 ```{r, include = FALSE}
 # Load data
 df_nutrients <- read.csv(path_nutrients, header = TRUE, sep = ";")
+df_farmers <- read.csv(path_farmers, header = TRUE, sep = ";")
+df_farmers <- df_farmers[, !grepl("^X", names(df_farmers))]  # Remove X, X.1, ...
+```
+
+```{r}
+merged_df <- df_nutrients %>%
+  left_join(df_farmers, by = "FieldID")
 ```
 
 ## NUTRIÊNTEN

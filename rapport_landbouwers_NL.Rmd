@@ -1,0 +1,504 @@
+---
+title: "Verslag microplastic analyse MiCoS"
+subtitle: "Perceel `r params$FieldID`"
+author:
+  - name: "Prof. Caroline De Tender"
+    affiliation: "Universiteit Gent"
+  - name: "dr. Lisa Joos"
+    affiliation: "Universiteit Gent"
+email: "micos@ugent.be"
+output: 
+  prettydoc::html_pretty: 
+    theme: leonids
+    highlight: github
+params:
+  FieldID: "MC24_008"
+---
+
+![](figures/logo_micos.png){width=20%}
+
+```{r, include = FALSE}
+# Algemene informatie gebruik script
+# Alle chuncks met code mogen niet voorkomen in het script, daarom moeten deze include = FALSE zijn. 
+
+```
+
+```{r, include = FALSE}
+# Deze pakketten zijn nodig om het script te laten lopen.
+library(dplyr)
+library(tidyr)
+library(gt)
+# Optioneel: gtExtras voor nette databalken
+# install.packages("gtExtras") # indien nodig
+library(gtExtras)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+```
+
+**To add:**
+
++ GPS coordinaten
++ bodemtextuur
++ APARTE NUTRIENTEN RESULTATEN PER PLOT?
++ macroplastics data?
+
+Beste landbouwer,
+
+In dit verslag vindt u de resultaten van het **MiCoS‑onderzoek** op uw perceel waaraan u hebt deelgenomen. Het MiCoS onderzoek is uitgevoerd in opdracht van Universiteit Gent om de microplastic concentratie in landbouwgronden van België, Nederland en Luxemburg in kaart te brengen. Deze staalname is uitgevoerd in de periode januari 2023 tem maart 2024. Hierbij zijn bodemstalen genomen voor verschillende analyses: microplastics, macroplastics, nutriënten en microbioom.
+
+Op het veld zijn in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (ABC) onderzocht. Voor de microplasticanalyse zijn twee stalen (staal A en C) geanalyseerd. De macroplastic analyse is gedaan door het afval te verzamelen tussen staalname locatie A en C. Een samenvatting van de microbioomdata zal aan het einde van het MiCoS-project worden gedeeld.
+
+**Informatie:**
+
+-   **Microplastics** zijn kleine plasticdeeltjes van minder dan 5 mm.
+-   **Macroplastics** zijn grotere stukken plastic, zoals folie of verpakkingsmateriaal.
+
+**Disclaimer:**
+
+-   Wij kunnen geen verdere informatie verstrekken ivm het verbeteren van de bodemgezondheid
+
+```{r, include = FALSE}
+# Locate data
+path <- ("./raw_data")
+
+# Create full pathways to necessary data files
+path_nutrients <- file.path(path, "Nutrient_data.csv")
+path_farmers <- file.path(path, "sampling_farmer_information.csv")
+path_MP <- file.path(path, "predicted_materials_count_by_sample_plotAandC_forR.csv")
+
+## Check if paths exists
+file.exists(path_nutrients, path_farmers, path_MP)
+```
+
+```{r, include = FALSE}
+# Load data
+df_nutrients <- read.csv(path_nutrients, header = TRUE, sep = ";")
+
+# Load farmer data
+df_farmers <- read.csv(path_farmers, header = TRUE, sep = ";")
+## There are empty rows in the excel startin with X, remove those
+df_farmers <- df_farmers[, !grepl("^X", names(df_farmers))]  # Remove X, X.1, ...
+
+# Load MP data
+df_MP <- read.csv(path_MP, header = TRUE, sep = ";")
+
+```
+
+```{r, include = FALSE}
+merged_df <- df_nutrients %>%
+  left_join(df_MP, by = "FieldID_Replicate")
+
+merged_df <- merged_df %>%
+  left_join(df_farmers, by = "FieldID.x")
+
+# Rename a single column
+colnames(merged_df)[colnames(merged_df) == "FieldID.x"] <- "FieldID"
+
+```
+
+# ALGEMENE INFORMATIE
+
+In dit verslag kan u de volgende resultaten terugvinden:
+
+-   Datum van staalname: `r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(Sampling_date))`
+-   Opgegeven dichtsbijzijnde adres: `r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(CompleteAddress))`
+-   GPS coordinaten voor
+    -   Plot A
+    -   Plot B
+    -   Plot C
+-   Grondsoort:
+
+# ANALYSERESULTATEN
+
+## Nutriënten
+
+
+```{r, include = FALSE}
+# Vervang 'df' door de naam van jouw dataframe
+vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
+
+summary_df <- merged_df %>%
+  
+  # selecteer alleen de bestaande kolommen
+  select(any_of(vars)) %>%
+  
+  # zorg dat niet-numerieke kolommen niet crashen bij mean/sd
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(
+    across(everything(),
+           list(
+             mean = ~ mean(.x, na.rm = TRUE)
+           ),
+           .names = "{.col}_{.fn}")
+  ) %>%
+  
+  # maak lange tabel met variabele, start en waarde
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variabele", "Statistiek"),
+    names_sep = "_",
+    values_to = "Waarde"
+  ) %>%
+  # zet mean/sd onder elkaar per variabele
+  arrange(Variabele, Statistiek) %>%
+  # optioneel: afronden
+  mutate(Waarde = round(Waarde, 3))
+
+summary_df
+```
+
+```{r include = FALSE, eval = FALSE, echo = FALSE}
+
+# Vervang 'df' door de naam van jouw dataframe
+vars <- c("pH_KCl", "OC", "TC", "IC", "IC.uitgevoerd",
+          "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
+
+summary_df <- df_nutrients %>%
+  # selecteer alleen de bestaande kolommen (handig als er variabelen ontbreken)
+  select(any_of(vars)) %>%
+  # zorg dat niet-numerieke kolommen niet crashen bij mean/sd
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(
+    across(everything(),
+           list(
+             mean = ~ mean(.x, na.rm = TRUE),
+             sd   = ~ sd(.x,   na.rm = TRUE)
+           ),
+           .names = "{.col}__{.fn}")
+  ) %>%
+  # maak "lange" tabel met variabele, stat en waarde
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variabele", "Statistiek"),
+    names_sep = "__",
+    values_to = "Waarde"
+  ) %>%
+  # zet mean/sd onder elkaar per variabele
+  arrange(Variabele, Statistiek) %>%
+  # optioneel: afronden
+  mutate(Waarde = round(Waarde, 3))
+
+```
+
+```{r include = FALSE}
+# 1) Je bestaande samenvatting (zoals in je code)
+vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
+
+summary_df <- merged_df %>%
+  select(any_of(vars)) %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(across(everything(), 
+                   list(mean = ~ mean(.x, na.rm = TRUE)), 
+                   .names = "{.col}__{.fn}")) %>%
+  
+  pivot_longer(cols = everything(),
+               names_to = c("Variabele", "Statistiek"),
+               names_sep = "__",
+               values_to = "Waarde") %>%
+  
+  arrange(Variabele, Statistiek) %>%
+  
+  mutate(Waarde = round(Waarde, 1)) 
+
+# 2) Mapping naar "Parameter" + eenheid + streeftraject (voorbeeldwaarden!)
+# ------> Pas MIN, STREEF, MAX en Eenheid aan jouw normering.
+meta <- tibble::tribble(
+  ~Variabele,   ~Parameter,  ~Eenheid, ~min_aanvaardbaar, ~streef_min, ~streef_max, ~max_aanvaardbaar,
+  "Ntotaal",    "Nitraat-N",  "mg/l",   0,                40,          100,         200,
+  "P_AmLact",   "Fosfor",    "mg/l",   0,                 3,           6,           15,
+  "K_AmLact",   "Kalium",  "mg/l",   0,                 75,          100,         200,
+  "Mg_AmLact",  "Magnesium",   "mg/l",   0,                 10,          15,          50,
+  "Ca_AmLact",  "Calcium",        "mg/l",   0,                 250,         600,         1500,
+  "pH_KCl", "Zuurgraden pH-KCl",  "",       4.5,               5.5,         6.0,         7.5,
+  "OC", "Organische stof",     "%",      1.0,               2.0,         5.0,         10.0
+)
+
+# 3) Combineer samenvatting met meta
+table_df <- summary_df %>%
+  left_join(meta, by = "Variabele") %>%
+  mutate(
+    # tekstkolommen
+    Analyse_resultaat = ifelse(Eenheid == "" | is.na(Eenheid),
+                               sprintf("%.1f", Waarde),
+                               sprintf("%.1f %s", Waarde, Eenheid)),
+    Streeftraject_txt = ifelse(streef_min == streef_max,
+                               sprintf("%.1f", streef_min),
+                               sprintf("%.1f - %.1f", streef_min, streef_max))
+  ) %>%
+  # 4) normaliseer voor waarderingsbalk (0..1 binnen min_aanvaardbaar..max_aanvaardbaar)
+  mutate(
+    min_all = pmin(min_aanvaardbaar, streef_min, na.rm = TRUE),
+    max_all = pmax(max_aanvaardbaar, streef_max, na.rm = TRUE),
+    score_raw = (Waarde - min_all) / (max_all - min_all),
+    score = pmax(0, pmin(1, score_raw)),
+    # markeer positie t.o.v. streef
+    in_streef = dplyr::between(Waarde, streef_min, streef_max))
+
+```
+
+```{r include = FALSE}
+
+
+
+# 5) Kies kolommen die in de tabel moeten komen
+gt_df <- table_df %>%
+  dplyr::select(Parameter,
+         Analyse_resultaat,
+         Streeftraject_txt,
+         score,
+         in_streef)
+
+# 6) Bouw de gt-tabel
+tab <- gt(gt_df) %>%
+  # Kopteksten
+  tab_header(
+    title = md("**ANALYSERESULTATEN**"),
+    subtitle = "Samenvatting nutriënten"
+  ) %>%
+  cols_label(
+    Parameter = "Parameter",
+    Analyse_resultaat = "Analyseresultaat",
+    Streeftraject_txt = "Streeftraject",
+    score = "Waardering",
+    in_streef = "Binnen streef?"
+  ) %>%
+  # Groepsspanners (optioneel)
+  tab_spanner(
+    label = "Waardering",
+    columns = c(Streeftraject_txt, score)
+  ) %>%
+  # Databalk voor score (0..1)
+  gtExtras::gt_theme_538() %>%    # subtiele stijl
+  # gtExtras::gt_plt_bar(score, scaled = TRUE, fill = "#76B947") %>%
+  # Kleurenindicatie 'Binnen streef?'
+  fmt_markdown(columns = Parameter) %>%
+  data_color(
+    columns = in_streef,
+    colors = scales::col_factor(
+      palette = c("#D55E00", "#009E73"), # rood = buiten, groen = binnen
+      levels = c(FALSE, TRUE)
+    )
+  ) %>%
+  # tabel-lijnen en opmaak
+  tab_options(
+    # table.font.names = c("Helvetica", "Arial", "sans-serif"),
+    # table.border.top.style = "solid",
+    # table.border.top.width = px(2),
+    table.border.top.color = "#3E7C59",
+    table.border.bottom.style = "solid",
+    table.border.bottom.width = px(2),
+    table.border.bottom.color = "#3E7C59",
+    heading.background.color = "#3E7C59",
+    # heading.title.font.color = "white",
+    # heading.subtitle.font.color = "white",
+    column_labels.background.color = "#EFEFEF",
+    row.striping.background_color = "#F9F9F9",
+    row.striping.include_table_body = TRUE
+  ) %>%
+  # dunne tussenlijnen voor die 'roze' scheiding in je voorbeeld
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#A8D5A2", weight = px(1)),
+    locations = cells_body(columns = everything())
+  ) %>%
+  # Laat TRUE/FALSE wat vriendelijker zien
+  text_transform(
+    locations = cells_body(columns = in_streef),
+    fn = function(x) ifelse(x == "TRUE", "streef", "laag/hoog")
+  )
+
+# 7) Toon tabel
+print(tab)
+```
+
+## Microplastic 
+
+
+```{r eval = FALSE, echo = FALSE}
+
+
+# 1) Select the columns
+kable_df <- table_df %>%
+  select(Parameter,
+         Analyse_resultaat,
+         Streeftraject_txt,
+         score,
+         in_streef) %>%
+  mutate(
+    # Convert logical TRUE/FALSE to friendly text
+    in_streef = ifelse(in_streef, "streef", "laag/hoog"),
+    # Optional: format numbers nicely
+    Analyse_resultaat = round(Analyse_resultaat, 1),
+    score = round(score, 2)
+  )
+
+# 2) Build the kableExtra table
+kable_df %>%
+  kable("latex", booktabs = TRUE, caption = "ANALYSERESULTATEN", escape = FALSE) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down")) %>%
+  # Add column groups (spanners)
+  add_header_above(c(" " = 1, "Waardering" = 2, " " = 2)) %>%
+  # Color the 'Binnen streef?' column
+  row_spec(
+    1:nrow(kable_df),
+    color = ifelse(kable_df$in_streef == "streef", "black", "black"),
+    background = ifelse(kable_df$in_streef == "streef", "#009E73", "#D55E00")
+  ) %>%
+  # Optional: bold the Parameter column
+  column_spec(1, bold = TRUE)
+
+```
+
+
+```{r}
+
+
+# Define which FieldID you want to highlight
+highlight_id <- params$FieldID  # e.g., "MC003"
+
+highlight_id <- "MC003"
+
+plot_df <- merged_df %>%
+  mutate(
+    highlight = case_when(
+      is.na(FieldID) ~ "Missing",                      # optional: color for NA FieldID
+      FieldID == highlight_id ~ "Selected farmer",
+      TRUE ~ "Other"
+    )
+  )
+
+ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
+  # Boxplot of all measurements together (no x labels)
+  geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
+  
+  
+  
+  # Colors: selected farmer in orange; others in grey; missing in darker grey
+  scale_color_manual(
+    values = c(
+      "Selected farmer" = "red",
+      "Other"           = "grey60",
+      "Missing"         = "grey30"
+    )
+  ) +
+  
+  # Cloud of individual points; jitter a bit horizontally to see them
+  geom_jitter(
+    aes(color = highlight),
+    width = 0.08, height = 0, size = 2, alpha = 0.70
+  ) +
+  
+  labs(
+    x = "",
+    y = "Microplastics [kg per kg droge grond]",
+    title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
+    color = NULL
+  ) +
+  
+  theme(
+    axis.text.x  = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(face = "bold"),
+    plot.title   = element_text(face = "bold"),
+    legend.position = "none"  # set to "right" if you want to show the legend
+  ) +
+  
+  ylim(-1, NA)
+
+
+
+```
+
+```{r}
+
+
+highlight_id <- "MC003"
+
+plot_df <- merged_df %>%
+  mutate(
+    highlight = case_when(
+      is.na(FieldID) ~ "Missing",
+      FieldID == highlight_id ~ "Selected farmer",
+      TRUE ~ "Other"
+    ),
+    highlight = factor(highlight, levels = c("Selected farmer", "Other", "Missing"))
+  )
+
+# Subset for the highlighted farmer
+highlight_df <- plot_df %>% filter(highlight == "Selected farmer")
+
+ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
+  # 1) Boxplot (all data)
+  geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
+  
+  # 2) Grey cloud (drawn FIRST so it stays behind)
+  geom_jitter(
+    data = plot_df %>% filter(highlight != "Selected farmer"),
+    aes(color = highlight),
+    width = 0.08, height = 0,
+    size = 2, alpha = 0.6
+  ) +
+  
+  # 3) Highlighted points (drawn AFTER to be on top, bigger size)
+  geom_jitter(
+    data = highlight_df,
+    aes(color = highlight),
+    width = 0.04, height = 0,
+    size = 3.8, alpha = 0.95
+  ) +
+  
+  # 4) Text labels for highlighted points
+  geom_text(
+    data = highlight_df,
+    aes(label = scales::number(Plastig_kg, accuracy = 1)), # e.g., 0.123
+    nudge_x = 0.12, nudge_y = 0,     # move labels slightly to the right of the point
+    size = 3.4,
+    fontface = "bold",
+    color = "#d95f02"
+  ) +
+  
+  scale_color_manual(
+    values = c("Selected farmer" = "#d95f02", "Other" = "grey60", "Missing" = "grey30")
+  ) +
+  coord_cartesian(ylim = c(-1, NA)) +
+  labs(
+    x = "",
+    y = "Microplastics [kg per kg droge grond]",
+    title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
+    color = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x  = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(face = "bold"),
+    plot.title   = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+```
+
+#Zoom in
+```{r}
+
+library(patchwork)  
+
+
+p_full <- ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
+  geom_boxplot(width = 0.25, outlier.shape = NA) +
+  geom_jitter(aes(color = highlight), width = 0.08, height = 0, size = 2, alpha = 0.6) +
+  scale_color_manual(values = c("Selected farmer" = "#d95f02", "Other" = "grey60", "Missing" = "grey30")) +
+  labs(x = "", y = "Microplastics [kg/kg] — volledige schaal") +
+  theme_minimal() + theme(legend.position = "none")
+
+p_zoom <- p_full + coord_cartesian(ylim = c(0, 200000)) +
+  labs(y = "Microplastics [kg/kg] — zoom 0–1.000")
+
+p_full / p_zoom  # stack vertically (use p_full | p_zoom for side-by-side)
+
+```
+
+

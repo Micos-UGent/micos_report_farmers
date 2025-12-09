@@ -116,83 +116,26 @@ In dit verslag kan u de volgende resultaten terugvinden:
 
 ## Nutriënten
 
-
-```{r, include = FALSE}
-# Vervang 'df' door de naam van jouw dataframe
+In onderstaande tabel kan u de resultaten vinden van de geanalyseerde nutriënten.
+```{r include = FALSE}
+# 1) Defineer de variabelen die we willen tonen in de tabel en vat deze samen
 vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
-
-summary_df <- merged_df %>%
-  
-  # selecteer alleen de bestaande kolommen
-  select(any_of(vars)) %>%
-  
-  # zorg dat niet-numerieke kolommen niet crashen bij mean/sd
-  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
-  summarise(
-    across(everything(),
-           list(
-             mean = ~ mean(.x, na.rm = TRUE)
-           ),
-           .names = "{.col}_{.fn}")
-  ) %>%
-  
-  # maak lange tabel met variabele, start en waarde
-  pivot_longer(
-    cols = everything(),
-    names_to = c("Variabele", "Statistiek"),
-    names_sep = "_",
-    values_to = "Waarde"
-  ) %>%
-  # zet mean/sd onder elkaar per variabele
-  arrange(Variabele, Statistiek) %>%
-  # optioneel: afronden
-  mutate(Waarde = round(Waarde, 3))
-
-summary_df
-```
-
-```{r include = FALSE, eval = FALSE, echo = FALSE}
-
-# Vervang 'df' door de naam van jouw dataframe
-vars <- c("pH_KCl", "OC", "TC", "IC", "IC.uitgevoerd",
-          "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
-
-summary_df <- df_nutrients %>%
-  # selecteer alleen de bestaande kolommen (handig als er variabelen ontbreken)
-  select(any_of(vars)) %>%
-  # zorg dat niet-numerieke kolommen niet crashen bij mean/sd
-  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
-  summarise(
-    across(everything(),
-           list(
-             mean = ~ mean(.x, na.rm = TRUE),
-             sd   = ~ sd(.x,   na.rm = TRUE)
-           ),
-           .names = "{.col}__{.fn}")
-  ) %>%
-  # maak "lange" tabel met variabele, stat en waarde
-  pivot_longer(
-    cols = everything(),
-    names_to = c("Variabele", "Statistiek"),
-    names_sep = "__",
-    values_to = "Waarde"
-  ) %>%
-  # zet mean/sd onder elkaar per variabele
-  arrange(Variabele, Statistiek) %>%
-  # optioneel: afronden
-  mutate(Waarde = round(Waarde, 3))
-
 ```
 
 ```{r include = FALSE}
-# 1) Je bestaande samenvatting (zoals in je code)
-vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
+
 
 summary_df <- merged_df %>%
+  
+  # selecteer alleen de variabelen van interesse
   select(any_of(vars)) %>%
   mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  
+  # Krijg de gemiddelde waarde en standaard error
   summarise(across(everything(), 
-                   list(mean = ~ mean(.x, na.rm = TRUE)), 
+                   list(mean = ~ mean(.x, na.rm = TRUE), 
+                        se = ~ {n_non_missing <- sum(!is.na(.x))
+        if (n_non_missing > 1) sd(.x, na.rm = TRUE) / sqrt(n_non_missing) else NA_real_ }),
                    .names = "{.col}__{.fn}")) %>%
   
   pivot_longer(cols = everything(),
@@ -202,8 +145,10 @@ summary_df <- merged_df %>%
   
   arrange(Variabele, Statistiek) %>%
   
-  mutate(Waarde = round(Waarde, 1)) 
+  mutate(Waarde = round(Waarde, 1))
+```
 
+```{r}
 # 2) Mapping naar "Parameter" + eenheid + streeftraject (voorbeeldwaarden!)
 # ------> Pas MIN, STREEF, MAX en Eenheid aan jouw normering.
 meta <- tibble::tribble(
@@ -216,7 +161,9 @@ meta <- tibble::tribble(
   "pH_KCl", "Zuurgraden pH-KCl",  "",       4.5,               5.5,         6.0,         7.5,
   "OC", "Organische stof",     "%",      1.0,               2.0,         5.0,         10.0
 )
+```
 
+```{r include = FALSE}
 # 3) Combineer samenvatting met meta
 table_df <- summary_df %>%
   left_join(meta, by = "Variabele") %>%

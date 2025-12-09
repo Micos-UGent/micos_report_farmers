@@ -117,149 +117,155 @@ In dit verslag kan u de volgende resultaten terugvinden:
 ## Nutriënten
 
 In onderstaande tabel kan u de resultaten vinden van de geanalyseerde nutriënten.
-```{r include = FALSE}
-# 1) Defineer de variabelen die we willen tonen in de tabel en vat deze samen
-vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
-```
-
-```{r include = FALSE}
-
-
-summary_df <- merged_df %>%
-  
-  # selecteer alleen de variabelen van interesse
-  select(any_of(vars)) %>%
-  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
-  
-  # Krijg de gemiddelde waarde en standaard error
-  summarise(across(everything(), 
-                   list(mean = ~ mean(.x, na.rm = TRUE), 
-                        se = ~ {n_non_missing <- sum(!is.na(.x))
-        if (n_non_missing > 1) sd(.x, na.rm = TRUE) / sqrt(n_non_missing) else NA_real_ }),
-                   .names = "{.col}__{.fn}")) %>%
-  
-  pivot_longer(cols = everything(),
-               names_to = c("Variabele", "Statistiek"),
-               names_sep = "__",
-               values_to = "Waarde") %>%
-  
-  arrange(Variabele, Statistiek) %>%
-  
-  mutate(Waarde = round(Waarde, 1))
-```
 
 ```{r}
-# 2) Mapping naar "Parameter" + eenheid + streeftraject (voorbeeldwaarden!)
-# ------> Pas MIN, STREEF, MAX en Eenheid aan jouw normering.
-meta <- tibble::tribble(
-  ~Variabele,   ~Parameter,  ~Eenheid, ~min_aanvaardbaar, ~streef_min, ~streef_max, ~max_aanvaardbaar,
-  "Ntotaal",    "Nitraat-N",  "mg/l",   0,                40,          100,         200,
-  "P_AmLact",   "Fosfor",    "mg/l",   0,                 3,           6,           15,
-  "K_AmLact",   "Kalium",  "mg/l",   0,                 75,          100,         200,
-  "Mg_AmLact",  "Magnesium",   "mg/l",   0,                 10,          15,          50,
-  "Ca_AmLact",  "Calcium",        "mg/l",   0,                 250,         600,         1500,
-  "pH_KCl", "Zuurgraden pH-KCl",  "",       4.5,               5.5,         6.0,         7.5,
-  "OC", "Organische stof",     "%",      1.0,               2.0,         5.0,         10.0
-)
-```
 
-```{r include = FALSE}
-# 3) Combineer samenvatting met meta
-table_df <- summary_df %>%
+# Variabelen
+vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
+
+# Meta (Parameter + Eenheid)
+meta <- tibble::tribble(
+  ~Variabele,   ~Parameter,               ~Eenheid,
+  "Ntotaal",    "Nitraat-N",              "mg/l",
+  "P_AmLact",   "Fosfor",                 "mg/l",
+  "K_AmLact",   "Kalium",                 "mg/l",
+  "Mg_AmLact",  "Magnesium",              "mg/l",
+  "Ca_AmLact",  "Calcium",                "mg/l",
+  "pH_KCl",     "Zuurgraden pH-KCl",      "",
+  "OC",         "Organische stof",        "%"
+)
+
+# Samenvatting: mean en SE per variabele
+summary_df <- merged_df %>%
+  select(any_of(vars)) %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(
+    across(
+      everything(),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ { n <- sum(!is.na(.x)); if (n > 1) sd(.x, na.rm = TRUE) / sqrt(n) else NA_real_ }
+      ),
+      .names = "{.col}__{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variabele", "Statistiek"),
+    names_sep = "__",
+    values_to = "Waarde"
+  ) %>%
+  pivot_wider(names_from = Statistiek, values_from = Waarde) %>%
+  mutate(mean = round(mean, 1),
+         se   = round(se, 1)) %>%
   left_join(meta, by = "Variabele") %>%
   mutate(
-    # tekstkolommen
-    Analyse_resultaat = ifelse(Eenheid == "" | is.na(Eenheid),
-                               sprintf("%.1f", Waarde),
-                               sprintf("%.1f %s", Waarde, Eenheid)),
-    Streeftraject_txt = ifelse(streef_min == streef_max,
-                               sprintf("%.1f", streef_min),
-                               sprintf("%.1f - %.1f", streef_min, streef_max))
+    # Alleen "gemiddelde ± SE" (zonder eenheid)
+    Analyse_resultaat = sprintf("%.1f \u00B1 %.1f", mean, se)
   ) %>%
-  # 4) normaliseer voor waarderingsbalk (0..1 binnen min_aanvaardbaar..max_aanvaardbaar)
-  mutate(
-    min_all = pmin(min_aanvaardbaar, streef_min, na.rm = TRUE),
-    max_all = pmax(max_aanvaardbaar, streef_max, na.rm = TRUE),
-    score_raw = (Waarde - min_all) / (max_all - min_all),
-    score = pmax(0, pmin(1, score_raw)),
-    # markeer positie t.o.v. streef
-    in_streef = dplyr::between(Waarde, streef_min, streef_max))
+  select(Variabele, Parameter, Analyse_resultaat, Eenheid)
+
+# Replicaten: één rij per variabele met A, B, C
+replicaten_df <- merged_df %>%
+  select(any_of(vars)) %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Variabele",
+    values_to = "waarde"
+  ) %>%
+  filter(!is.na(waarde)) %>%
+  group_by(Variabele) %>%
+  summarise(
+    A = if (n() >= 1) round(dplyr::nth(waarde, 1), 1) else NA_real_,
+    B = if (n() >= 2) round(dplyr::nth(waarde, 2), 1) else NA_real_,
+    C = if (n() >= 3) round(dplyr::nth(waarde, 3), 1) else NA_real_,
+    .groups = "drop"
+  )
+
+# Finale tabel: Eenheid-kolom direct achter Analyse_resultaat
+table_df <- summary_df %>%
+  left_join(replicaten_df, by = "Variabele") %>%
+  mutate(Variabele = factor(Variabele, levels = vars)) %>%
+  arrange(Variabele) %>%
+  select(Parameter, Analyse_resultaat, Eenheid, A, B, C)
+
+
 
 ```
-
-```{r include = FALSE}
-
-
+```{r}
 
 # 5) Kies kolommen die in de tabel moeten komen
 gt_df <- table_df %>%
-  dplyr::select(Parameter,
-         Analyse_resultaat,
-         Streeftraject_txt,
-         score,
-         in_streef)
+  dplyr::select(
+    Parameter,
+    Analyse_resultaat,  # bv. "6.3 ± 0.0"
+    Eenheid,            # bv. "mg/l"
+    A, B, C             # replicaten naast elkaar
+  )
 
 # 6) Bouw de gt-tabel
-tab <- gt(gt_df) %>%
+tab <- gt::gt(gt_df) %>%
   # Kopteksten
-  tab_header(
-    title = md("**ANALYSERESULTATEN**"),
-    subtitle = "Samenvatting nutriënten"
+  gt::tab_header(
+    title = gt::md("**ANALYSERESULTATEN**"),
+    subtitle = "Samenvatting parameters"
   ) %>%
-  cols_label(
+  # Labels per kolom
+  gt::cols_label(
     Parameter = "Parameter",
-    Analyse_resultaat = "Analyseresultaat",
-    Streeftraject_txt = "Streeftraject",
-    score = "Waardering",
-    in_streef = "Binnen streef?"
+    Analyse_resultaat = md("Gemiddeld resultaat<br>(gem. ± SE)"),
+    Eenheid = "Eenheid",
+    A = "A",
+    B = "B",
+    C = "C"
   ) %>%
-  # Groepsspanners (optioneel)
-  tab_spanner(
-    label = "Waardering",
-    columns = c(Streeftraject_txt, score)
+  # Kolomspanner boven A/B/C
+  gt::tab_spanner(
+    label = "Resultaat per plot",
+    columns = c(A, B, C)
   ) %>%
-  # Databalk voor score (0..1)
-  gtExtras::gt_theme_538() %>%    # subtiele stijl
-  # gtExtras::gt_plt_bar(score, scaled = TRUE, fill = "#76B947") %>%
-  # Kleurenindicatie 'Binnen streef?'
-  fmt_markdown(columns = Parameter) %>%
-  data_color(
-    columns = in_streef,
-    colors = scales::col_factor(
-      palette = c("#D55E00", "#009E73"), # rood = buiten, groen = binnen
-      levels = c(FALSE, TRUE)
-    )
-  ) %>%
+  # Stijl (optioneel, subtiel)
+  gtExtras::gt_theme_538() %>%
+  gt::fmt_markdown(columns = "Parameter") %>%
   # tabel-lijnen en opmaak
-  tab_options(
-    # table.font.names = c("Helvetica", "Arial", "sans-serif"),
-    # table.border.top.style = "solid",
-    # table.border.top.width = px(2),
+  gt::tab_options(
     table.border.top.color = "#3E7C59",
     table.border.bottom.style = "solid",
-    table.border.bottom.width = px(2),
+    table.border.bottom.width = gt::px(2),
     table.border.bottom.color = "#3E7C59",
     heading.background.color = "#3E7C59",
-    # heading.title.font.color = "white",
-    # heading.subtitle.font.color = "white",
     column_labels.background.color = "#EFEFEF",
     row.striping.background_color = "#F9F9F9",
     row.striping.include_table_body = TRUE
   ) %>%
-  # dunne tussenlijnen voor die 'roze' scheiding in je voorbeeld
-  tab_style(
-    style = cell_borders(sides = "bottom", color = "#A8D5A2", weight = px(1)),
-    locations = cells_body(columns = everything())
-  ) %>%
-  # Laat TRUE/FALSE wat vriendelijker zien
-  text_transform(
-    locations = cells_body(columns = in_streef),
-    fn = function(x) ifelse(x == "TRUE", "streef", "laag/hoog")
+  # dunne tussenlijnen voor subtiele scheiding
+  gt::tab_style(
+    style = gt::cell_borders(sides = "bottom", color = "#A8D5A2", weight = gt::px(1)),
+    locations = gt::cells_body(columns = gt::everything())
   )
 
-# 7) Toon tabel
-print(tab)
+
+# Optie B: binnen R Markdown naar PDF (LaTeX)
+# Zet in een Rmd-chunk (zonder echo) dit neer:
+cat(gt::as_latex(tab))
+
 ```
+
+```{r results='asis', echo=FALSE, warning=FALSE, message=FALSE}
+# Zet gt-object om naar LaTeX en schrijf inline naar de PDF
+latex_tab <- gt::as_latex(tab)
+cat(latex_tab)
+
+```
+
+
+```{r}
+
+```
+
+
+
 
 ## Microplastic 
 

@@ -1,21 +1,12 @@
 ---
 title: "Verslag microplastic analyse MiCoS"
-subtitle: "Perceel `r params$FieldID`"
-author:
-  - name: "Prof. Caroline De Tender"
-    affiliation: "Universiteit Gent"
-  - name: "dr. Lisa Joos"
-    affiliation: "Universiteit Gent"
-email: "micos@ugent.be"
-output: 
-  prettydoc::html_pretty: 
-    theme: leonids
-    highlight: github
+subtitle: "`r paste0('Perceel ', params$FieldID)`"
+output: pdf_document
 params:
   FieldID: "MC24_008"
 ---
 
-![](figures/logo_micos.png){width=20%}
+
 
 ```{r, include = FALSE}
 # Algemene informatie gebruik script
@@ -37,14 +28,16 @@ library(stringr)
 library(ggplot2)
 library(dplyr)
 library(kableExtra)
+library(tinytex)
+
+# saving gtables as images
+library(webshot2)
+
+library(rmarkdown)
+
+# devtools::install_github("rstudio/gt")
+# install.packages("Rtools")
 ```
-
-**To add:**
-
-+ GPS coordinaten
-+ bodemtextuur
-+ APARTE NUTRIENTEN RESULTATEN PER PLOT?
-+ macroplastics data?
 
 Beste landbouwer,
 
@@ -60,6 +53,8 @@ Op het veld zijn in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn 
 **Disclaimer:**
 
 -   Wij kunnen geen verdere informatie verstrekken ivm het verbeteren van de bodemgezondheid
+
+\newpage
 
 ```{r, include = FALSE}
 # Locate data
@@ -118,7 +113,7 @@ In dit verslag kan u de volgende resultaten terugvinden:
 
 In onderstaande tabel kan u de resultaten vinden van de geanalyseerde nutriënten.
 
-```{r}
+```{r include = FALSE}
 
 # Variabelen
 vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
@@ -193,6 +188,7 @@ table_df <- summary_df %>%
 
 
 ```
+
 ```{r}
 
 # 5) Kies kolommen die in de tabel moeten komen
@@ -205,7 +201,7 @@ gt_df <- table_df %>%
   )
 
 # 6) Bouw de gt-tabel
-tab <- gt::gt(gt_df) %>%
+gt::gt(gt_df) %>%
   # Kopteksten
   gt::tab_header(
     title = gt::md("**ANALYSERESULTATEN**"),
@@ -219,50 +215,42 @@ tab <- gt::gt(gt_df) %>%
     A = "A",
     B = "B",
     C = "C"
-  ) %>%
-  # Kolomspanner boven A/B/C
-  gt::tab_spanner(
-    label = "Resultaat per plot",
-    columns = c(A, B, C)
-  ) %>%
-  # Stijl (optioneel, subtiel)
-  gtExtras::gt_theme_538() %>%
-  gt::fmt_markdown(columns = "Parameter") %>%
-  # tabel-lijnen en opmaak
-  gt::tab_options(
-    table.border.top.color = "#3E7C59",
-    table.border.bottom.style = "solid",
-    table.border.bottom.width = gt::px(2),
-    table.border.bottom.color = "#3E7C59",
-    heading.background.color = "#3E7C59",
-    column_labels.background.color = "#EFEFEF",
-    row.striping.background_color = "#F9F9F9",
-    row.striping.include_table_body = TRUE
-  ) %>%
-  # dunne tussenlijnen voor subtiele scheiding
-  gt::tab_style(
-    style = gt::cell_borders(sides = "bottom", color = "#A8D5A2", weight = gt::px(1)),
-    locations = gt::cells_body(columns = gt::everything())
-  )
+  ) 
 
+  # # Kolomspanner boven A/B/C
+  # gt::tab_spanner(
+  #   label = "Resultaat per plot",
+  #   columns = c(A, B, C)
+  # ) %>%
+  # # Stijl (optioneel, subtiel)
+  # gtExtras::gt_theme_538() %>%
+  # gt::fmt_markdown(columns = "Parameter") %>%
+  # # tabel-lijnen en opmaak
+  # gt::tab_options(
+  #   table.border.top.color = "#3E7C59",
+  #   table.border.bottom.style = "solid",
+  #   table.border.bottom.width = gt::px(2),
+  #   table.border.bottom.color = "#3E7C59",
+  #   heading.background.color = "#3E7C59",
+  #   column_labels.background.color = "#EFEFEF",
+  #   row.striping.background_color = "#F9F9F9",
+  #   row.striping.include_table_body = TRUE
+  # ) %>%
+  # # dunne tussenlijnen voor subtiele scheiding
+  # gt::tab_style(
+  #   style = gt::cell_borders(sides = "bottom", color = "#A8D5A2", weight = gt::px(1)),
+  #   locations = gt::cells_body(columns = gt::everything())
+  # )
+  # 
 
 # Optie B: binnen R Markdown naar PDF (LaTeX)
 # Zet in een Rmd-chunk (zonder echo) dit neer:
-cat(gt::as_latex(tab))
-
-```
-
-```{r results='asis', echo=FALSE, warning=FALSE, message=FALSE}
-# Zet gt-object om naar LaTeX en schrijf inline naar de PDF
-latex_tab <- gt::as_latex(tab)
-cat(latex_tab)
+# cat(gt::as_latex(tab))
 
 ```
 
 
-```{r}
 
-```
 
 
 
@@ -270,7 +258,7 @@ cat(latex_tab)
 ## Microplastic 
 
 
-```{r eval = FALSE, echo = FALSE}
+```{r include = FALSE, eval = FALSE, echo = FALSE}
 
 
 # 1) Select the columns
@@ -306,66 +294,64 @@ kable_df %>%
 ```
 
 
-```{r}
+```{r include = FALSE}
 
 
-# Define which FieldID you want to highlight
-highlight_id <- params$FieldID  # e.g., "MC003"
-
-highlight_id <- "MC003"
-
-plot_df <- merged_df %>%
-  mutate(
-    highlight = case_when(
-      is.na(FieldID) ~ "Missing",                      # optional: color for NA FieldID
-      FieldID == highlight_id ~ "Selected farmer",
-      TRUE ~ "Other"
-    )
-  )
-
-ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
-  # Boxplot of all measurements together (no x labels)
-  geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
-  
-  
-  
-  # Colors: selected farmer in orange; others in grey; missing in darker grey
-  scale_color_manual(
-    values = c(
-      "Selected farmer" = "red",
-      "Other"           = "grey60",
-      "Missing"         = "grey30"
-    )
-  ) +
-  
-  # Cloud of individual points; jitter a bit horizontally to see them
-  geom_jitter(
-    aes(color = highlight),
-    width = 0.08, height = 0, size = 2, alpha = 0.70
-  ) +
-  
-  labs(
-    x = "",
-    y = "Microplastics [kg per kg droge grond]",
-    title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
-    color = NULL
-  ) +
-  
-  theme(
-    axis.text.x  = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(face = "bold"),
-    plot.title   = element_text(face = "bold"),
-    legend.position = "none"  # set to "right" if you want to show the legend
-  ) +
-  
-  ylim(-1, NA)
+# # Define which FieldID you want to highlight
+# highlight_id <- params$FieldID  # e.g., "MC003"
+# 
+# plot_df <- merged_df %>%
+#   mutate(
+#     highlight = case_when(
+#       is.na(FieldID) ~ "Missing",                      # optional: color for NA FieldID
+#       FieldID == highlight_id ~ "Selected farmer",
+#       TRUE ~ "Other"
+#     )
+#   )
+# 
+# ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
+#   # Boxplot of all measurements together (no x labels)
+#   geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
+#   
+#   
+#   
+#   # Colors: selected farmer in orange; others in grey; missing in darker grey
+#   scale_color_manual(
+#     values = c(
+#       "Selected farmer" = "red",
+#       "Other"           = "grey60",
+#       "Missing"         = "grey30"
+#     )
+#   ) +
+#   
+#   # Cloud of individual points; jitter a bit horizontally to see them
+#   geom_jitter(
+#     aes(color = highlight),
+#     width = 0.08, height = 0, size = 2, alpha = 0.70
+#   ) +
+#   
+#   labs(
+#     x = "",
+#     y = "Microplastics [kg per kg droge grond]",
+#     title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
+#     color = NULL
+#   ) +
+#   
+#   theme(
+#     axis.text.x  = element_blank(),
+#     axis.title.x = element_blank(),
+#     axis.title.y = element_text(face = "bold"),
+#     plot.title   = element_text(face = "bold"),
+#     legend.position = "none"  # set to "right" if you want to show the legend
+#   ) +
+#   
+#   ylim(-1, NA)
 
 
 
 ```
 
-```{r}
+```{r include = FALSE}
 
 
 highlight_id <- "MC003"
@@ -383,6 +369,10 @@ plot_df <- merged_df %>%
 # Subset for the highlighted farmer
 highlight_df <- plot_df %>% filter(highlight == "Selected farmer")
 
+
+```
+
+```{r}
 ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
   # 1) Boxplot (all data)
   geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
@@ -435,7 +425,7 @@ ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
 ```
 
 #Zoom in
-```{r}
+```{r include = FALSE}
 
 library(patchwork)  
 

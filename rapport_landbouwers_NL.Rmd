@@ -420,8 +420,11 @@ knitr::include_graphics("table_nutrients.png")
 
 
 ### Tabel
+```{r}
+colnames(df_MAP)
+```
 
-In onderstaande tabel kan u de resultaten terugvinden van de microplastics, macroplastics en ook afval. Deze laatste categorie omvat alle plastics + al het andere materiaal dat we gevonden hebben op het veld tussen locatie A en C ((bak)stenen, metaal, andere, ...). Omdat dit maar één waarde geeft zal u bij waarde per locatie enkel bij A een resultaat zien en bij de andere NVT (niet van toepassing).
+In onderstaande tabel kan u uw waardes terugvinden van de microplastics, macroplastics en ook de algemene afval categorie. Deze laatste categorie omvat al het verzamelde plastic, maar ook nog keramiek, metalen, stenen, rubber, glass en anderen dat we gevonden hebben op het veld tussen locatie A en C ((bak)stenen, metaal, andere, ...). Omdat dit maar één waarde geeft zal u bij waarde per locatie enkel bij A een resultaat zien en bij de andere NVT (niet van toepassing).
 
 ```{r include = FALSE}
 # Variabelen
@@ -435,11 +438,8 @@ meta <- tibble::tribble(
   "Total_macromaterials", "Afval",        "Afval / hectare"
 )
 ```
-
-```{r include = FALSE}
-
-# Samenvatting: mean en SE per variabele
-
+```{r  include = FALSE}
+# --- 1) Mijn waardes (single FieldID) ---
 summary_df <- df_field %>%
   select(any_of(vars)) %>%
   mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
@@ -464,16 +464,17 @@ summary_df <- df_field %>%
          se   = round(se, 1)) %>%
   left_join(meta, by = "Variabele") %>%
   mutate(
-  Analyse_resultaat = case_when(
-    is.na(mean) ~ NA_character_,                      # geen data
-    is.na(se) | se == 0 ~ sprintf("%.1f", mean),      # alleen mean als SE ontbreekt of 0
-    TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se)) # mean ± SE
-  )
-) %>%
-  select(Variabele, Parameter, Analyse_resultaat, Eenheid)
+    Mijn_waardes = case_when(
+      is.na(mean) ~ NA_character_,
+      is.na(se) | se == 0 ~ sprintf("%.1f", mean),
+      TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se))
+    )
+  ) %>%
+  select(Variabele, Parameter, Mijn_waardes, Eenheid)
 
-# Replicaten: één rij per variabele met A, B, C
+```
 
+```{r  include = FALSE}
 replicaten_df <- df_field %>%
   # Selecteer Plot + alle variabelen
   select(Plot, any_of(vars)) %>%
@@ -494,57 +495,99 @@ replicaten_df <- df_field %>%
   ) %>%
   # Rond af
   mutate(across(c(A, C), ~ round(.x, 1)))
+```
 
+```{r  include = FALSE}
+# --- 2) Alle MiCoS waardes (all plots) ---
+all_summary_df <- merged_df %>%
+  select(any_of(vars)) %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(
+    across(
+      everything(),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ { n <- sum(!is.na(.x)); if (n > 1) sd(.x, na.rm = TRUE) / sqrt(n) else NA_real_ }
+      ),
+      .names = "{.col}__{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variabele", "Statistiek"),
+    names_sep = "__",
+    values_to = "Waarde"
+  ) %>%
+  pivot_wider(names_from = Statistiek, values_from = Waarde) %>%
+  mutate(mean = round(mean, 1),
+         se   = round(se, 1)) %>%
+  left_join(meta, by = "Variabele") %>%
+  mutate(
+    Alle_MiCoS_waardes = case_when(
+      is.na(mean) ~ NA_character_,
+      is.na(se) | se == 0 ~ sprintf("%.1f", mean),
+      TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se))
+    )
+  ) %>%
+  select(Variabele, Alle_MiCoS_waardes)
 
-# Finale tabel: Eenheid-kolom direct achter Analyse_resultaat
+```
+
+```{r  include = FALSE}
+# --- 4) Combine: voeg MP_kg per-plot info toe ---
 table_df <- summary_df %>%
+  left_join(all_summary_df, by = "Variabele") %>%
   left_join(replicaten_df, by = "Variabele") %>%
-  mutate(Variabele = factor(Variabele, levels = vars)) %>%
-  arrange(Variabele) %>%
-  select(Parameter, Analyse_resultaat, Eenheid, A, C)
-
-```
-
-```{r include = FALSE}
-
-# 5) Kies kolommen die in de tabel moeten komen
-gt_df <- table_df %>%
-  dplyr::select(
-    Parameter,
-    Analyse_resultaat,  # bv. "6.3 ± 0.0"
-    Eenheid,            # bv. "mg/l"
-    A, C             # replicaten naast elkaar
-  )
-
+  select(Parameter, Mijn_waardes, Alle_MiCoS_waardes, Eenheid, A, C, )
 
 
 ```
 
 ```{r include = FALSE}
-tab <- gt::gt(gt_df) %>%
+tab <- gt::gt(table_df) %>%
+  # Header
   gt::tab_header(
     title = gt::md("**ANALYSERESULTATEN**"),
     subtitle = "Samenvatting parameters"
   ) %>%
+  
+  # Labels
   gt::cols_label(
     Parameter = "Parameter",
-    Analyse_resultaat = md("Gemiddeld resultaat<br>(gem. ± SE)"),
+    Mijn_waardes = md("Uw waardes<br>(gem. ± SE)"),
+    Alle_MiCoS_waardes = md("Alle waardes<br>(gem. ± SE)"),
     Eenheid = "Eenheid",
     A = "A",
     C = "C"
+    
   ) %>%
-
-  # 👉 Increase width of main columns, leave A/B/C unchanged
+  
+  # Column widths
   gt::cols_width(
-    Parameter ~ gt::px(200),          # wider
-    Analyse_resultaat ~ gt::px(180),  # wider
-    Eenheid ~ gt::px(100)             # slightly wider
+    Parameter ~ gt::px(200),
+    Mijn_waardes ~ gt::px(180),
+    Alle_MiCoS_waardes ~ gt::px(150),  # nieuwe kolom iets breder
+    Eenheid ~ gt::px(100)
+   
   ) %>%
-
+  
+  # Spanner voor per-plot waarden
   gt::tab_spanner(
-    label = "Waarde per locatie",
+    label = "Uw waarde per locatie",
     columns = c(A, C)
   ) %>%
+  
+    gt::sub_missing(
+    columns = gt::everything(),
+    missing_text = "NVT>") %>%
+  
+  # Voeg voetnoot bij kolomtitel "Mijn waardes" en "Alle MiCoS waardes"
+  tab_footnote(
+    footnote = "NVT = Niet van toepassing",
+    locations = cells_column_labels(columns = c(Mijn_waardes, Alle_MiCoS_waardes))
+  ) %>%
+  
+  # Theme
   gtExtras::gt_theme_538() %>%
   gt::fmt_markdown(columns = "Parameter") %>%
   gt::tab_options(
@@ -557,13 +600,17 @@ tab <- gt::gt(gt_df) %>%
     row.striping.background_color = "#F9F9F9",
     row.striping.include_table_body = TRUE
   ) %>%
+  
+  # Style for Eenheid column
   gt::tab_style(
     style = gt::cell_text(whitespace = "nowrap"),
-    locations = gt::cells_body(columns = Eenheid))
-  
+    locations = gt::cells_body(columns = Eenheid)
+  )
 
 # Save as PNG at high resolution
 gt::gtsave(tab, filename = "table_plastics.png")
+
+
 ```
 
 ```{r echo = FALSE}
@@ -596,11 +643,9 @@ highlight_df <- plot_df %>% filter(highlight == "Selected farmer")
 ```
 
 
-
-
-
 ```{r include = FALSE}
-make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
+# --- 1) Functie aanpassen zodat y-variable flexibel is ---
+make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL, y_label = NULL) {
   
   # Split highlighted and non-highlighted
   other_df <- data %>% filter(highlight != "Selected farmer")
@@ -610,29 +655,29 @@ make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
     # 1) Boxplot behind everything
     geom_boxplot(
       data = data,
-      aes(x = "", y = MP_kg),
+      aes(x = "", y = .data[[yvar]]),
       size = 1.2, width = 0.25, outlier.shape = NA,
       fill = "white", color = "black", alpha = 0.3
     ) +
     # 2) Grey points (other farmers) on top of boxplot
     geom_jitter(
       data = other_df,
-      aes(x = "", y = MP_kg, color = highlight),
+      aes(x = "", y = .data[[yvar]], color = highlight),
       width = 0.08, height = 0,
       size = 2, alpha = 0.6
     ) +
     # 3) Highlighted points on top
     geom_jitter(
       data = highlight_df,
-      aes(x = "", y = MP_kg, color = highlight),
+      aes(x = "", y = .data[[yvar]], color = highlight),
       width = 0.04, height = 0,
       size = 2, alpha = 0.95
     ) +
-    # 4) Labels to the right of highlighted points
+    # 4) Labels for highlighted points
     geom_text(
       data = highlight_df,
-      aes(x = "", y = MP_kg,
-          label = format(MP_kg, big.mark = " ", scientific = FALSE)),
+      aes(x = "", y = .data[[yvar]],
+          label = format(.data[[yvar]], big.mark = " ", scientific = FALSE)),
       nudge_x = 0.30,
       nudge_y = 0,
       size = 3.4,
@@ -647,7 +692,7 @@ make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
       )
     ) +
     scale_y_continuous(
-      labels = function(x) format(x, big.mark = " ", scientific = FALSE),
+      labels = function(x) format(x, big.mark = " ", scientific = FALSE, digits = 0, nsmall = 0),
       breaks = y_breaks
     ) +
     coord_cartesian(ylim = ylimits) +
@@ -656,7 +701,7 @@ make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
       title = title,
       color = NULL
     ) +
-    ylab("Aantal microplastics per kg droge grond") +
+    ylab(y_label) +
     theme_minimal(base_size = 12) +
     theme(
       axis.text.x  = element_blank(),
@@ -670,37 +715,46 @@ make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
 ```
 
 ```{r include = FALSE}
-# 1) All data
-p1 <- make_plot(
+# --- 2) Maak individuele plots ---
+p_MP <- make_plot(
   plot_df,
+  yvar = "MP_kg",
   ylimits = c(0, 600000),
-  title = "Alle waarden",
-  y_breaks = seq(0, 600000, 100000)
+  title = "Microplastics",
+  y_breaks = seq(0, 600000, 100000),
+  y_label = "Aantal microplastics per kg droge grond"
 )
 
-# 2) Low range (< 100,000)
-p2 <- make_plot(plot_df %>% filter(MP_kg < 25000), 
-                ylimits = c(0, 25000),
-                title = "Waarden < 25 000", y_breaks = seq(0, 25000, 5000))
-p2 <- p2 + ylab("")
+p_plastics <- make_plot(
+  plot_df,
+  yvar = "Total_plastics",
+  ylimits = c(0, 2000),
+  title = "Macroplastics",
+  y_breaks = seq(0, 2000, 500),
+  y_label = "Aantal macroplastics per hectare"
+)
 
-# 3) High range (>= 100,000)
-p3 <- make_plot(plot_df %>% filter(MP_kg >= 25000), 
-                ylimits = c(0, 600000),
-                title = "Waarden ≥ 25 000", 
-                y_breaks = seq(0, 600000, 100000))
-p3 <- p3 + ylab("")
+p_macromaterials <- make_plot(
+  plot_df,
+  yvar = "Total_macromaterials",
+  ylimits = c(0, 4000),
+  title = "Totale macromaterialen",
+  y_breaks = seq(0, 4000, 1000),
+  y_label = "Aantal totale macromaterialen per hectare"
+)
+
 ```
 
-```{r, warning = FALSE, echo = FALSE}
-combined <- p1 + p2 + p3 + 
+`
+```{r warning = FALSE, echo = FALSE}
+# --- 3) Combineer de drie plots naast elkaar ---
+combined <- p_MP + p_plastics + p_macromaterials + 
   plot_layout(ncol = 3) & 
   theme(
-    axis.title.y = element_text(face = "bold") # only shows for p1
+    axis.title.y = element_text(face = "bold") # y-as titel blijft bold
   )
 
 combined
-
 
 ```
 

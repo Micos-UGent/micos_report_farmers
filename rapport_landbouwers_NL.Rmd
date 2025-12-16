@@ -1,17 +1,75 @@
 ---
 title: "Verslag microplastic analyse MiCoS"
-subtitle: "`r paste0('Perceel ', params$FieldID)`"
-output: pdf_document
+subtitle: "`r paste0('Perceelcode ', params$FieldID)`"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: TRUE
 params:
   FieldID: "MC24_008"
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage[table]{xcolor}
+  - \usepackage{float}
+  - \usepackage[most]{tcolorbox}
+  - \usepackage{sectsty}
+  - \usepackage{wrapfig}
+  - \usepackage{multicol}
+  - \definecolor{micosgreen}{HTML}{3E7C59}
+  - \sectionfont{\color{micosgreen}}
+  - \subsectionfont{\color{micosgreen}}
+  - \subsubsectionfont{\color{micosgreen}}
+  - \tcbset{colback=gray!5, colframe=gray!50!black, boxrule=0.4pt, arc=3pt}
 ---
 
+\begin{center}
+\includegraphics[width=0.22\textwidth]{figures/logo_micos.png}
+\end{center}
 
 
-```{r, include = FALSE}
-# Algemene informatie gebruik script
-# Alle chuncks met code mogen niet voorkomen in het script, daarom moeten deze include = FALSE zijn. 
+\begin{tcolorbox}[
+  width=\textwidth,
+  colback=green!5,
+  colframe=green!40!black,
+  boxrule=0.5pt,
+  arc=3pt
+]
+\begin{tabular}{@{}l@{}}
+\textbf{Verantwoordelijken:} \\
+Prof. Caroline De Tender (Universiteit Gent) \\
+dr. Lisa Joos (Universiteit Gent) \\[4pt]
 
+\textbf{Email:} micos@ugent.be \\[4pt]
+
+\textbf{Website:} www.micos.ugent.be \\[4pt]
+
+\textbf{Datum rapport:} `r format(Sys.Date(), '%d-%m-%Y')` \\[4pt]
+
+\end{tabular}
+\end{tcolorbox}
+
+
+Beste landbouwer,
+
+In dit verslag vindt u de resultaten van het **MiCoS‑onderzoek** op uw perceel, waaraan u hebt deelgenomen. Het MiCoS-onderzoek werd uitgevoerd in opdracht van Universiteit Gent en heeft als doel om de microplastic concentratie in landbouwgronden van België, Nederland en Luxemburg in kaart te brengen. 
+
+Deze staalname is uitgevoerd in de periode van januari 2023 tot en met maart 2024. Tijdens deze campagne werden bodemstalen genomen voor de volgende analyses, die u ook in dit rapport terugvindt:
+
++ Bodemparameters: pH, OC, P, N, K, Mg en Ca
++ Microplastics: plasticdeeltjes kleiner dan 5 mm
++ Macroplastics: plasticdeeltjes groter dan 5 mm
+
+Op het veld werden in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (A, B en C) onderzocht. Voor de microplasticanalyse zijn momenteel twee stalen (staal A en C) geanalyseerd, staal B is lopende en zal op een later moment gecommuniceerd worden. De macroplastic data is verkregen door al het afval inclusief plastic te verzamelen tussen staalnamelocatie A en C. 
+
+Daarnaast zijn ook stalen genomen op alle vijf de locaties om de bacteriële en schimmelgemeenschap in kaart te brengen. Deze analyses vergen meer tijd en de resultaten zullen aan het einde van het MiCoS-project (voorzien in 2026) worden gedeeld met u.
+
+Bij vragen of opmerkingen kunt u contact opnemen via micos@ugent.be. Gelieve daarbij uw veldcode startend met MC (bovenaan het rapport) te vermelden. Daarnaast organiseren wij ook een webinar in februari waarin we een aantal veelgestelde vragen toelichten, met aandacht voor de plastic data. Tijdens dit webinar is er ook ruimte om vragen te stellen.
+
+\newpage
+
+
+```{r include = FALSE}
+options(sciphen = 999)
 ```
 
 ```{r, include = FALSE}
@@ -26,6 +84,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(ggplot2)
+library(scales)
 library(dplyr)
 library(kableExtra)
 library(tinytex)
@@ -34,27 +93,12 @@ library(tinytex)
 library(webshot2)
 
 library(rmarkdown)
+library(patchwork)
 
-# devtools::install_github("rstudio/gt")
-# install.packages("Rtools")
+# Combine dataframes
+library(purrr)
+
 ```
-
-Beste landbouwer,
-
-In dit verslag vindt u de resultaten van het **MiCoS‑onderzoek** op uw perceel waaraan u hebt deelgenomen. Het MiCoS onderzoek is uitgevoerd in opdracht van Universiteit Gent om de microplastic concentratie in landbouwgronden van België, Nederland en Luxemburg in kaart te brengen. Deze staalname is uitgevoerd in de periode januari 2023 tem maart 2024. Hierbij zijn bodemstalen genomen voor verschillende analyses: microplastics, macroplastics, nutriënten en microbioom.
-
-Op het veld zijn in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (ABC) onderzocht. Voor de microplasticanalyse zijn twee stalen (staal A en C) geanalyseerd. De macroplastic analyse is gedaan door het afval te verzamelen tussen staalname locatie A en C. Een samenvatting van de microbioomdata zal aan het einde van het MiCoS-project worden gedeeld.
-
-**Informatie:**
-
--   **Microplastics** zijn kleine plasticdeeltjes van minder dan 5 mm.
--   **Macroplastics** zijn grotere stukken plastic, zoals folie of verpakkingsmateriaal.
-
-**Disclaimer:**
-
--   Wij kunnen geen verdere informatie verstrekken ivm het verbeteren van de bodemgezondheid
-
-\newpage
 
 ```{r, include = FALSE}
 # Locate data
@@ -64,10 +108,14 @@ path <- ("./raw_data")
 path_nutrients <- file.path(path, "Nutrient_data.csv")
 path_farmers <- file.path(path, "sampling_farmer_information.csv")
 path_MP <- file.path(path, "predicted_materials_count_by_sample_plotAandC_forR.csv")
+path_MAP <- file.path(path, "MaP_Hectare.csv")
+path_coordinates <- file.path(path, "Oppervlaktes_velden_MaP_20240701.csv")
 
 ## Check if paths exists
-file.exists(path_nutrients, path_farmers, path_MP)
+file.exists(path_nutrients, path_farmers, path_MP, path_MAP, path_coordinates)
 ```
+
+
 
 ```{r, include = FALSE}
 # Load data
@@ -81,40 +129,94 @@ df_farmers <- df_farmers[, !grepl("^X", names(df_farmers))]  # Remove X, X.1, ..
 # Load MP data
 df_MP <- read.csv(path_MP, header = TRUE, sep = ";")
 
+# Load MAP data
+df_MAP <- read.csv(path_MAP, header = TRUE, sep = ";")
+
+# Load coordinates data
+df_GPS <- read.csv(path_coordinates, header = TRUE, sep = ";")
+
 ```
 
-```{r, include = FALSE}
-merged_df <- df_nutrients %>%
-  left_join(df_MP, by = "FieldID_Replicate")
 
-merged_df <- merged_df %>%
-  left_join(df_farmers, by = "FieldID.x")
+```{r include = FALSE}
+# Cleaning data - only keep the data that we want to work with
+df_nutrients <- df_nutrients %>% select(ID_Klant, fieldnumber, FieldID, FieldID_Short, Plot, FieldID_Plot, pH_KCl, OC, TC, IC, Ntotaal, K_AmLact, Mg_AmLact, Ca_AmLact, P_AmLact)
 
-# Rename a single column
-colnames(merged_df)[colnames(merged_df) == "FieldID.x"] <- "FieldID"
+# Clean up df_farmers
+df_farmers <- df_farmers %>% select(FieldID, FieldID_Short, Sampling_date, SubmissionID, RespondentID, FirstName, LastName, CompleteAddress) %>%
+  
+  # Add the empty columns A,B,C,D and E
+  crossing(Plot = c("A","B","C","D","E")) %>%
+  mutate(FieldID_Plot = paste0(FieldID_Short, "_", Plot))
 
+df_MAP <- df_MAP %>% select(FieldID:Total_ceramics, Soil_Texture)
+df_GPS <- df_GPS %>% select(FieldID, FieldID_Short, Plot, FieldID_Plot, Latitude_N, Longitude_E)
+```
+
+```{r include = FALSE}
+# list of all dataframes
+dfs <- list(df_farmers, df_GPS, df_nutrients, df_MAP, df_MP)
+
+# merge all by the key columns
+merged_df <- reduce(dfs, ~ full_join(.x, .y, by = c("FieldID", "FieldID_Short", "Plot", "FieldID_Plot")))
 ```
 
 # ALGEMENE INFORMATIE
 
-In dit verslag kan u de volgende resultaten terugvinden:
+\begin{tcolorbox}[
+  width=\textwidth,
+  colback=green!5,
+  colframe=green!40!black,
+  boxrule=0.5pt,
+  arc=3pt
+]
+\begin{tabular}{@{}l@{}}
 
--   Datum van staalname: `r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(Sampling_date))`
--   Opgegeven dichtsbijzijnde adres: `r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(CompleteAddress))`
--   GPS coordinaten voor
-    -   Plot A
-    -   Plot B
-    -   Plot C
--   Grondsoort:
+\textbf{Datum van staalname:} 
+`r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(Sampling_date))` \\[4pt]
+
+\textbf{Opgegeven dichtsbijzijnde adres:}
+`r unique(merged_df %>% filter(FieldID == params$FieldID) %>% pull(CompleteAddress))` \\[6pt]
+
+\textbf{GPS coördinaten:} \\
+Plot A: `r tmp <- merged_df %>% filter(FieldID == params$FieldID, Plot == "A") %>% drop_na(Latitude_N, Longitude_E) %>% slice(1);
+paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
+Plot B: `r tmp <- merged_df %>% filter(FieldID == params$FieldID, Plot == "B") %>% drop_na(Latitude_N, Longitude_E) %>% slice(1);
+paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
+Plot C: `r tmp <- merged_df %>% filter(FieldID == params$FieldID, Plot == "C") %>% drop_na(Latitude_N, Longitude_E) %>% slice(1);
+paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
+
+
+\textbf{Grondsoort:}  `r merged_df %>% filter(FieldID == params$FieldID, !is.na(Soil_Texture)) %>%  pull(Soil_Texture) %>%  unique()`\\
+
+\end{tabular}
+\end{tcolorbox}
+
+
 
 # ANALYSERESULTATEN
 
-## Nutriënten
+## Bodemparameters
 
-In onderstaande tabel kan u de resultaten vinden van de geanalyseerde nutriënten.
+In onderstaande tabel vindt u de resultaten van de gemeten bodemparameters. Een gemiddelde waarde met de standaardafwijking wordt gerapporteerd. Daarnaast worden de waardes gemeten per locatie (A, B en C) ook apart weergegeven.
 
-```{r include = FALSE}
+Aangezien dit een wetenschappelijk onderzoek is met een specifieke focus op microplastics, kunnen wij geen uitspraken doen over de bodemkwaliteit, noch advies geven over mogelijke maatregelen om deze te verbeteren. Voor begeleiding of interpretatie met betrekking tot bodemkwaliteit kan u zich wenden tot een gespecialiseerde adviseur of landbouwconsulent.
 
+```{r, include = FALSE}
+format_sig <- function(x) {
+  ifelse(
+    is.na(x), NA_character_,
+    ifelse(
+      abs(x) >= 0.1,
+      sprintf("%.1f", x),
+      formatC(x, digits = 1, format = "fg", flag = "#")
+    )
+  )
+}
+
+```
+
+```{r, include = FALSE}
 # Variabelen
 vars <- c("pH_KCl", "OC", "Ntotaal", "K_AmLact", "Mg_AmLact", "Ca_AmLact", "P_AmLact")
 
@@ -127,11 +229,34 @@ meta <- tibble::tribble(
   "Mg_AmLact",  "Magnesium",              "mg/l",
   "Ca_AmLact",  "Calcium",                "mg/l",
   "pH_KCl",     "Zuurgraden pH-KCl",      "",
-  "OC",         "Organische stof",        "%"
-)
+  "OC",         "Organische stof",        "%")
+```
+
+```{r, include = FALSE}
+df_field <- merged_df %>%
+  filter(FieldID == params$FieldID)
+
+```
+
+```{r, include = FALSE}
+# Deze code is nodig zodanig dat de SE altijd een cijfer toont en niet bv 0.0 is. 
+format_se <- function(x) {
+  if (x == 0) {
+    return("0.0")
+  } else if (x >= 0.1) {
+    return(sprintf("%.1f", x))  # Normaal 1 decimaal
+  } else {
+    # Toon tot het eerste significante cijfer
+    return(formatC(x, digits = 1, format = "fg", flag = "#"))
+  }
+}
+```
+
+```{r include = FALSE}
 
 # Samenvatting: mean en SE per variabele
-summary_df <- merged_df %>%
+
+summary_df <- df_field %>%
   select(any_of(vars)) %>%
   mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
   summarise(
@@ -155,28 +280,37 @@ summary_df <- merged_df %>%
          se   = round(se, 1)) %>%
   left_join(meta, by = "Variabele") %>%
   mutate(
-    # Alleen "gemiddelde ± SE" (zonder eenheid)
-    Analyse_resultaat = sprintf("%.1f \u00B1 %.1f", mean, se)
-  ) %>%
+  Analyse_resultaat = case_when(
+    is.na(mean) ~ NA_character_,                      # geen data
+    is.na(se) | se == 0 ~ sprintf("%.1f", mean),      # alleen mean als SE ontbreekt of 0
+    TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se)) # mean ± SE
+  )
+) %>%
   select(Variabele, Parameter, Analyse_resultaat, Eenheid)
 
 # Replicaten: één rij per variabele met A, B, C
-replicaten_df <- merged_df %>%
-  select(any_of(vars)) %>%
-  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+
+replicaten_df <- df_field %>%
+  # Selecteer plot + alle variabelen
+  select(Plot, any_of(vars)) %>%
+  # Zet alles numeriek (optioneel: robuuste parsing als nodig)
+  mutate(across(any_of(vars), ~ suppressWarnings(as.numeric(.)))) %>%
+  # Pivot naar long: één rij per (plot, variabele)
   pivot_longer(
-    cols = everything(),
+    cols = any_of(vars),
     names_to = "Variabele",
     values_to = "waarde"
   ) %>%
+  # Filter lege waarden
   filter(!is.na(waarde)) %>%
-  group_by(Variabele) %>%
-  summarise(
-    A = if (n() >= 1) round(dplyr::nth(waarde, 1), 1) else NA_real_,
-    B = if (n() >= 2) round(dplyr::nth(waarde, 2), 1) else NA_real_,
-    C = if (n() >= 3) round(dplyr::nth(waarde, 3), 1) else NA_real_,
-    .groups = "drop"
-  )
+  # Pivot naar breed: kolommen A, B, C op basis van plot
+  pivot_wider(
+    names_from = Plot,
+    values_from = waarde
+  ) %>%
+  # Rond af
+  mutate(across(c(A, B, C), ~ round(.x, 1)))
+
 
 # Finale tabel: Eenheid-kolom direct achter Analyse_resultaat
 table_df <- summary_df %>%
@@ -185,11 +319,14 @@ table_df <- summary_df %>%
   arrange(Variabele) %>%
   select(Parameter, Analyse_resultaat, Eenheid, A, B, C)
 
-
-
 ```
 
-```{r}
+
+
+
+
+
+```{r include = FALSE}
 
 # 5) Kies kolommen die in de tabel moeten komen
 gt_df <- table_df %>%
@@ -200,161 +337,247 @@ gt_df <- table_df %>%
     A, B, C             # replicaten naast elkaar
   )
 
-# 6) Bouw de gt-tabel
-gt::gt(gt_df) %>%
-  # Kopteksten
+
+
+```
+
+```{r include = FALSE}
+tab <- gt::gt(gt_df) %>%
   gt::tab_header(
     title = gt::md("**ANALYSERESULTATEN**"),
     subtitle = "Samenvatting parameters"
   ) %>%
-  # Labels per kolom
+  gt::cols_label(
+    Parameter = "Parameter",
+    Analyse_resultaat = md("Gemiddelde waarde<br>(gem. ± SE<sup>1</sup>))"),
+    Eenheid = "Eenheid",
+    A = "A",
+    B = "B",
+    C = "C"
+  ) %>%
+
+  # 👉 Increase width of main columns, leave A/B/C unchanged
+  gt::cols_width(
+    Parameter ~ gt::px(200),          # wider
+    Analyse_resultaat ~ gt::px(180),  # wider
+    Eenheid ~ gt::px(100)             # slightly wider
+  ) %>%
+
+  gt::tab_spanner(
+    label = "Resultaat per Plot",
+    columns = c(A, B, C)
+  ) %>%
+  gtExtras::gt_theme_538() %>%
+  gt::fmt_markdown(columns = "Parameter") %>%
+  gt::tab_options(
+    table.border.top.color = "#3E7C59",
+    table.border.bottom.style = "solid",
+    table.border.bottom.width = gt::px(2),
+    table.border.bottom.color = "#3E7C59",
+    heading.background.color = "#3E7C59",
+    column_labels.background.color = "#EFEFEF",
+    row.striping.background_color = "#F9F9F9",
+    row.striping.include_table_body = TRUE
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_borders(sides = "bottom", color = "#A8D5A2", weight = gt::px(1)),
+    locations = gt::cells_body(columns = gt::everything())) %>%
+  
+  # Voetnoot
+  gt::tab_source_note(
+    source_note = gt::md("<sup>1</sup> SE: standaard error / standaardafwijking")  
+      
+  )
+
+# Save as PNG at high resolution
+gt::gtsave(tab, filename = "table_nutrients.png")
+```
+
+
+```{r echo = FALSE}
+knitr::include_graphics("table_nutrients.png")
+```
+
+
+## Plastics
+
+\begin{multicols}{2}
+
+  % Left column: figure
+  \includegraphics[width=.4\textwidth]{figures/micos_plastic.jpg}
+
+\columnbreak
+
+  % Right column: text
+  In dit onderzoek focussen we ons op twee grootte-ordes van plastics op en in het veld:
+
+  \begin{itemize}
+    \item \textbf{Microplastics}: Dit zijn plasticdeeltjes kleiner dan 5mm en onderzoeken we in de grondstalen van plot A, B en C.
+    \item \textbf{Macroplastics}: Dit zijn alle plasticdeeltjes groter dan 5 mm en hebben we op het veld verzameld tussen plot A, B en C. Maw niet overheen het gehele veld maar een vastgelegd traject.
+  \end{itemize}
+
+\end{multicols}
+
+
+### Tabel
+
+In onderstaande tabel kan u de resultaten terugvinden van de microplastics, macroplastics en ook afval. Deze laatste categorie omvat alle plastics + al het andere materiaal dat we gevonden hebben op het veld tussen locatie A en C ((bak)stenen, metaal, andere, ...). Omdat dit maar één waarde geeft zal u bij waarde per locatie enkel bij A een resultaat zien en bij de andere NVT (niet van toepassing).
+
+```{r include = FALSE}
+# Variabelen
+vars <- c("MP_kg", "Total_plastics", "Total_macromaterials")
+
+# Meta (Parameter + Eenheid)
+meta <- tibble::tribble(
+  ~Variabele,   ~Parameter,               ~Eenheid,
+  "MP_kg", "Microplastics",          "Microplastics / kg droge grond",
+  "Total_plastics", "Macroplastics",      "Macroplastics / hectare",
+  "Total_macromaterials", "Afval",        "Afval / hectare"
+)
+```
+
+```{r include = FALSE}
+
+# Samenvatting: mean en SE per variabele
+
+summary_df <- df_field %>%
+  select(any_of(vars)) %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  summarise(
+    across(
+      everything(),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ { n <- sum(!is.na(.x)); if (n > 1) sd(.x, na.rm = TRUE) / sqrt(n) else NA_real_ }
+      ),
+      .names = "{.col}__{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variabele", "Statistiek"),
+    names_sep = "__",
+    values_to = "Waarde"
+  ) %>%
+  pivot_wider(names_from = Statistiek, values_from = Waarde) %>%
+  mutate(mean = round(mean, 1),
+         se   = round(se, 1)) %>%
+  left_join(meta, by = "Variabele") %>%
+  mutate(
+  Analyse_resultaat = case_when(
+    is.na(mean) ~ NA_character_,                      # geen data
+    is.na(se) | se == 0 ~ sprintf("%.1f", mean),      # alleen mean als SE ontbreekt of 0
+    TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se)) # mean ± SE
+  )
+) %>%
+  select(Variabele, Parameter, Analyse_resultaat, Eenheid)
+
+# Replicaten: één rij per variabele met A, B, C
+
+replicaten_df <- df_field %>%
+  # Selecteer Plot + alle variabelen
+  select(Plot, any_of(vars)) %>%
+  # Zet alles numeriek (optioneel: robuuste parsing als nodig)
+  mutate(across(any_of(vars), ~ suppressWarnings(as.numeric(.)))) %>%
+  # Pivot naar long: één rij per (Plot, variabele)
+  pivot_longer(
+    cols = any_of(vars),
+    names_to = "Variabele",
+    values_to = "waarde"
+  ) %>%
+  # Filter lege waarden
+  filter(!is.na(waarde)) %>%
+  # Pivot naar breed: kolommen A, B, C op basis van Plot
+  pivot_wider(
+    names_from = Plot,
+    values_from = waarde
+  ) %>%
+  # Rond af
+  mutate(across(c(A, C), ~ round(.x, 1)))
+
+
+# Finale tabel: Eenheid-kolom direct achter Analyse_resultaat
+table_df <- summary_df %>%
+  left_join(replicaten_df, by = "Variabele") %>%
+  mutate(Variabele = factor(Variabele, levels = vars)) %>%
+  arrange(Variabele) %>%
+  select(Parameter, Analyse_resultaat, Eenheid, A, C)
+
+```
+
+```{r include = FALSE}
+
+# 5) Kies kolommen die in de tabel moeten komen
+gt_df <- table_df %>%
+  dplyr::select(
+    Parameter,
+    Analyse_resultaat,  # bv. "6.3 ± 0.0"
+    Eenheid,            # bv. "mg/l"
+    A, C             # replicaten naast elkaar
+  )
+
+
+
+```
+
+```{r include = FALSE}
+tab <- gt::gt(gt_df) %>%
+  gt::tab_header(
+    title = gt::md("**ANALYSERESULTATEN**"),
+    subtitle = "Samenvatting parameters"
+  ) %>%
   gt::cols_label(
     Parameter = "Parameter",
     Analyse_resultaat = md("Gemiddeld resultaat<br>(gem. ± SE)"),
     Eenheid = "Eenheid",
     A = "A",
-    B = "B",
     C = "C"
-  ) 
-
-  # # Kolomspanner boven A/B/C
-  # gt::tab_spanner(
-  #   label = "Resultaat per plot",
-  #   columns = c(A, B, C)
-  # ) %>%
-  # # Stijl (optioneel, subtiel)
-  # gtExtras::gt_theme_538() %>%
-  # gt::fmt_markdown(columns = "Parameter") %>%
-  # # tabel-lijnen en opmaak
-  # gt::tab_options(
-  #   table.border.top.color = "#3E7C59",
-  #   table.border.bottom.style = "solid",
-  #   table.border.bottom.width = gt::px(2),
-  #   table.border.bottom.color = "#3E7C59",
-  #   heading.background.color = "#3E7C59",
-  #   column_labels.background.color = "#EFEFEF",
-  #   row.striping.background_color = "#F9F9F9",
-  #   row.striping.include_table_body = TRUE
-  # ) %>%
-  # # dunne tussenlijnen voor subtiele scheiding
-  # gt::tab_style(
-  #   style = gt::cell_borders(sides = "bottom", color = "#A8D5A2", weight = gt::px(1)),
-  #   locations = gt::cells_body(columns = gt::everything())
-  # )
-  # 
-
-# Optie B: binnen R Markdown naar PDF (LaTeX)
-# Zet in een Rmd-chunk (zonder echo) dit neer:
-# cat(gt::as_latex(tab))
-
-```
-
-
-
-
-
-
-
-## Microplastic 
-
-
-```{r include = FALSE, eval = FALSE, echo = FALSE}
-
-
-# 1) Select the columns
-kable_df <- table_df %>%
-  select(Parameter,
-         Analyse_resultaat,
-         Streeftraject_txt,
-         score,
-         in_streef) %>%
-  mutate(
-    # Convert logical TRUE/FALSE to friendly text
-    in_streef = ifelse(in_streef, "streef", "laag/hoog"),
-    # Optional: format numbers nicely
-    Analyse_resultaat = round(Analyse_resultaat, 1),
-    score = round(score, 2)
-  )
-
-# 2) Build the kableExtra table
-kable_df %>%
-  kable("latex", booktabs = TRUE, caption = "ANALYSERESULTATEN", escape = FALSE) %>%
-  kable_styling(latex_options = c("striped", "hold_position", "scale_down")) %>%
-  # Add column groups (spanners)
-  add_header_above(c(" " = 1, "Waardering" = 2, " " = 2)) %>%
-  # Color the 'Binnen streef?' column
-  row_spec(
-    1:nrow(kable_df),
-    color = ifelse(kable_df$in_streef == "streef", "black", "black"),
-    background = ifelse(kable_df$in_streef == "streef", "#009E73", "#D55E00")
   ) %>%
-  # Optional: bold the Parameter column
-  column_spec(1, bold = TRUE)
 
+  # 👉 Increase width of main columns, leave A/B/C unchanged
+  gt::cols_width(
+    Parameter ~ gt::px(200),          # wider
+    Analyse_resultaat ~ gt::px(180),  # wider
+    Eenheid ~ gt::px(100)             # slightly wider
+  ) %>%
+
+  gt::tab_spanner(
+    label = "Waarde per locatie",
+    columns = c(A, C)
+  ) %>%
+  gtExtras::gt_theme_538() %>%
+  gt::fmt_markdown(columns = "Parameter") %>%
+  gt::tab_options(
+    table.border.top.color = "#3E7C59",
+    table.border.bottom.style = "solid",
+    table.border.bottom.width = gt::px(2),
+    table.border.bottom.color = "#3E7C59",
+    heading.background.color = "#3E7C59",
+    column_labels.background.color = "#EFEFEF",
+    row.striping.background_color = "#F9F9F9",
+    row.striping.include_table_body = TRUE
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_text(whitespace = "nowrap"),
+    locations = gt::cells_body(columns = Eenheid))
+  
+
+# Save as PNG at high resolution
+gt::gtsave(tab, filename = "table_plastics.png")
 ```
 
-
-```{r include = FALSE}
-
-
-# # Define which FieldID you want to highlight
-# highlight_id <- params$FieldID  # e.g., "MC003"
-# 
-# plot_df <- merged_df %>%
-#   mutate(
-#     highlight = case_when(
-#       is.na(FieldID) ~ "Missing",                      # optional: color for NA FieldID
-#       FieldID == highlight_id ~ "Selected farmer",
-#       TRUE ~ "Other"
-#     )
-#   )
-# 
-# ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
-#   # Boxplot of all measurements together (no x labels)
-#   geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
-#   
-#   
-#   
-#   # Colors: selected farmer in orange; others in grey; missing in darker grey
-#   scale_color_manual(
-#     values = c(
-#       "Selected farmer" = "red",
-#       "Other"           = "grey60",
-#       "Missing"         = "grey30"
-#     )
-#   ) +
-#   
-#   # Cloud of individual points; jitter a bit horizontally to see them
-#   geom_jitter(
-#     aes(color = highlight),
-#     width = 0.08, height = 0, size = 2, alpha = 0.70
-#   ) +
-#   
-#   labs(
-#     x = "",
-#     y = "Microplastics [kg per kg droge grond]",
-#     title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
-#     color = NULL
-#   ) +
-#   
-#   theme(
-#     axis.text.x  = element_blank(),
-#     axis.title.x = element_blank(),
-#     axis.title.y = element_text(face = "bold"),
-#     plot.title   = element_text(face = "bold"),
-#     legend.position = "none"  # set to "right" if you want to show the legend
-#   ) +
-#   
-#   ylim(-1, NA)
-
-
-
+```{r echo = FALSE}
+knitr::include_graphics("table_plastics.png")
 ```
 
+### Grafiek microplastics
+
+In de onderstaande grafiek ziet u de resultaten van alle gemeten microplasticconcentraties over de 240 onderzochte velden. De gegevens worden weergegeven in drie afzonderlijke grafieken: de eerste toont alle metingen, de tweede beperkt zich tot metingen tot 25.000 microplasticdeeltjes (waar de grootste concentratie van resultaten ligt), en de derde grafiek toont de metingen boven de 25.000 deeltjes. Uw resultaten zijn in oranje weergegeven, met het aantal microplasticdeeltjes per kilogram grond vermeld. Dit geeft een indicatie van hoe de concentraties in uw veld zich verhouden tot de andere metingen.
+
+Op dit moment kunnen we nog niet beoordelen of deze waarden een invloed hebben op de gezondheid van bodem en planten, of of ze als laag of hoog beschouwd moeten worden. Het onderzoek is nog lopende, en de verdere resultaten zullen via de nieuwsbrief worden gedeeld.
+
 ```{r include = FALSE}
-
-
-highlight_id <- "MC003"
+highlight_id <- params$FieldID
 
 plot_df <- merged_df %>%
   mutate(
@@ -372,76 +595,117 @@ highlight_df <- plot_df %>% filter(highlight == "Selected farmer")
 
 ```
 
-```{r}
-ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
-  # 1) Boxplot (all data)
-  geom_boxplot(size = 1.5, width = 0.25, outlier.shape = NA) +
+
+
+
+
+```{r include = FALSE}
+make_plot <- function(data, ylimits = NULL, title = NULL, y_breaks = NULL) {
   
-  # 2) Grey cloud (drawn FIRST so it stays behind)
-  geom_jitter(
-    data = plot_df %>% filter(highlight != "Selected farmer"),
-    aes(color = highlight),
-    width = 0.08, height = 0,
-    size = 2, alpha = 0.6
-  ) +
+  # Split highlighted and non-highlighted
+  other_df <- data %>% filter(highlight != "Selected farmer")
+  highlight_df <- data %>% filter(highlight == "Selected farmer")
   
-  # 3) Highlighted points (drawn AFTER to be on top, bigger size)
-  geom_jitter(
-    data = highlight_df,
-    aes(color = highlight),
-    width = 0.04, height = 0,
-    size = 3.8, alpha = 0.95
-  ) +
-  
-  # 4) Text labels for highlighted points
-  geom_text(
-    data = highlight_df,
-    aes(label = scales::number(Plastig_kg, accuracy = 1)), # e.g., 0.123
-    nudge_x = 0.12, nudge_y = 0,     # move labels slightly to the right of the point
-    size = 3.4,
-    fontface = "bold",
-    color = "#d95f02"
-  ) +
-  
-  scale_color_manual(
-    values = c("Selected farmer" = "#d95f02", "Other" = "grey60", "Missing" = "grey30")
-  ) +
-  coord_cartesian(ylim = c(-1, NA)) +
-  labs(
-    x = "",
-    y = "Microplastics [kg per kg droge grond]",
-    title = paste("Microplastics – alle metingen; highlight veld:", highlight_id),
-    color = NULL
-  ) +
-  theme_minimal(base_size = 12) +
+  ggplot() +
+    # 1) Boxplot behind everything
+    geom_boxplot(
+      data = data,
+      aes(x = "", y = MP_kg),
+      size = 1.2, width = 0.25, outlier.shape = NA,
+      fill = "white", color = "black", alpha = 0.3
+    ) +
+    # 2) Grey points (other farmers) on top of boxplot
+    geom_jitter(
+      data = other_df,
+      aes(x = "", y = MP_kg, color = highlight),
+      width = 0.08, height = 0,
+      size = 2, alpha = 0.6
+    ) +
+    # 3) Highlighted points on top
+    geom_jitter(
+      data = highlight_df,
+      aes(x = "", y = MP_kg, color = highlight),
+      width = 0.04, height = 0,
+      size = 2, alpha = 0.95
+    ) +
+    # 4) Labels to the right of highlighted points
+    geom_text(
+      data = highlight_df,
+      aes(x = "", y = MP_kg,
+          label = format(MP_kg, big.mark = " ", scientific = FALSE)),
+      nudge_x = 0.30,
+      nudge_y = 0,
+      size = 3.4,
+      fontface = "bold",
+      color = "#d95f02"
+    ) +
+    scale_color_manual(
+      values = c(
+        "Selected farmer" = "#d95f02",
+        "Other" = "grey60",
+        "Missing" = "grey30"
+      )
+    ) +
+    scale_y_continuous(
+      labels = function(x) format(x, big.mark = " ", scientific = FALSE),
+      breaks = y_breaks
+    ) +
+    coord_cartesian(ylim = ylimits) +
+    labs(
+      x = NULL,
+      title = title,
+      color = NULL
+    ) +
+    ylab("Aantal microplastics per kg droge grond") +
+    theme_minimal(base_size = 12) +
+    theme(
+      axis.text.x  = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(face = "bold"),
+      plot.title   = element_text(face = "bold", hjust = 0.5),
+      legend.position = "none"
+    )
+}
+
+```
+
+```{r include = FALSE}
+# 1) All data
+p1 <- make_plot(
+  plot_df,
+  ylimits = c(0, 600000),
+  title = "Alle waarden",
+  y_breaks = seq(0, 600000, 100000)
+)
+
+# 2) Low range (< 100,000)
+p2 <- make_plot(plot_df %>% filter(MP_kg < 25000), 
+                ylimits = c(0, 25000),
+                title = "Waarden < 25 000", y_breaks = seq(0, 25000, 5000))
+p2 <- p2 + ylab("")
+
+# 3) High range (>= 100,000)
+p3 <- make_plot(plot_df %>% filter(MP_kg >= 25000), 
+                ylimits = c(0, 600000),
+                title = "Waarden ≥ 25 000", 
+                y_breaks = seq(0, 600000, 100000))
+p3 <- p3 + ylab("")
+```
+
+```{r, warning = FALSE, echo = FALSE}
+combined <- p1 + p2 + p3 + 
+  plot_layout(ncol = 3) & 
   theme(
-    axis.text.x  = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(face = "bold"),
-    plot.title   = element_text(face = "bold"),
-    legend.position = "none"
+    axis.title.y = element_text(face = "bold") # only shows for p1
   )
 
-```
+combined
 
-#Zoom in
-```{r include = FALSE}
-
-library(patchwork)  
-
-
-p_full <- ggplot(plot_df, aes(x = "", y = Plastig_kg)) +
-  geom_boxplot(width = 0.25, outlier.shape = NA) +
-  geom_jitter(aes(color = highlight), width = 0.08, height = 0, size = 2, alpha = 0.6) +
-  scale_color_manual(values = c("Selected farmer" = "#d95f02", "Other" = "grey60", "Missing" = "grey30")) +
-  labs(x = "", y = "Microplastics [kg/kg] — volledige schaal") +
-  theme_minimal() + theme(legend.position = "none")
-
-p_zoom <- p_full + coord_cartesian(ylim = c(0, 200000)) +
-  labs(y = "Microplastics [kg/kg] — zoom 0–1.000")
-
-p_full / p_zoom  # stack vertically (use p_full | p_zoom for side-by-side)
 
 ```
 
 
+Wij sluiten dit rapport graaf af met u nog eens te bedanken om deel te nemen aan dit onderzoek.
+
+Vriendelijke groet,
+Caroline, Lisa, Benthe en Jozefien

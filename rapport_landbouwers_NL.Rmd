@@ -15,22 +15,24 @@ header-includes:
   - \usepackage{sectsty}
   - \usepackage{wrapfig}
   - \usepackage{multicol}
-  - \definecolor{micosgreen}{HTML}{3E7C59}
+  - \definecolor{micosgreen}{HTML}{598863}
   - \sectionfont{\color{micosgreen}}
   - \subsectionfont{\color{micosgreen}}
   - \subsubsectionfont{\color{micosgreen}}
+  - \definecolor{micosborder}{HTML}{6b8f71}
+  - \definecolor{micosfill}{HTML}{74a57f}
   - \tcbset{colback=gray!5, colframe=gray!50!black, boxrule=0.4pt, arc=3pt}
 ---
 
 \begin{center}
-\includegraphics[width=0.22\textwidth]{figures/logo_micos.png}
+\includegraphics[width=0.22\textwidth]{1_illustrations/logo_micos.png}
 \end{center}
 
 
 \begin{tcolorbox}[
   width=\textwidth,
-  colback=green!5,
-  colframe=green!40!black,
+  colback=micosfill!50!white,
+  colframe=micosborder!40!black,
   boxrule=0.5pt,
   arc=3pt
 ]
@@ -59,11 +61,11 @@ Deze staalname is uitgevoerd in de periode van januari 2023 tot en met maart 202
 + Microplastics: plasticdeeltjes kleiner dan 5 mm
 + Macroplastics: plasticdeeltjes groter dan 5 mm
 
-Op het veld werden in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (A, B en C) onderzocht. Voor de microplasticanalyse zijn momenteel twee stalen (staal A en C) geanalyseerd, staal B is lopende en zal op een later moment gecommuniceerd worden. De macroplastic data is verkregen door al het afval inclusief plastic te verzamelen tussen staalnamelocatie A en C. 
+Op uw perceel werden in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (A, B en C) onderzocht. Voor de microplasticanalyse zijn momenteel twee stalen (staal A en C) geanalyseerd, staal B is lopende en zal op een later moment gecommuniceerd worden. De macroplastic data is verkregen door al het plastic afval groter dan 5 mm te verzamelen tussen staalnamelocatie A en C. 
 
 Daarnaast zijn ook stalen genomen op alle vijf de locaties om de bacteriële en schimmelgemeenschap in kaart te brengen. Deze analyses vergen meer tijd en de resultaten zullen aan het einde van het MiCoS-project (voorzien in 2026) worden gedeeld met u.
 
-Bij vragen of opmerkingen kunt u contact opnemen via micos@ugent.be. Gelieve daarbij uw veldcode startend met MC (bovenaan het rapport) te vermelden. Daarnaast organiseren wij ook een webinar in februari waarin we een aantal veelgestelde vragen toelichten, met aandacht voor de plastic data. Tijdens dit webinar is er ook ruimte om vragen te stellen.
+Bij vragen of opmerkingen kunt u contact opnemen via micos@ugent.be. Gelieve daarbij uw perceelcode beginnend met **MC** (bovenaan het rapport) te vermelden. Omdat onderzoek naar (micro)plastics in (landbouw)bodems nog in volle ontwikkeling is, voorzien wij bijkomende toelichting via een **webinar**, waarin de eerste resultaten worden geduid en in een breder kader geplaatst. Hierbij voorzien wij ook 
 
 \newpage
 
@@ -102,7 +104,7 @@ library(purrr)
 
 ```{r, include = FALSE}
 # Locate data
-path <- ("./raw_data")
+path <- ("./0_raw_data")
 
 # Create full pathways to necessary data files
 path_nutrients <- file.path(path, "Nutrient_data.csv")
@@ -161,12 +163,43 @@ dfs <- list(df_farmers, df_GPS, df_nutrients, df_MAP, df_MP)
 merged_df <- reduce(dfs, ~ full_join(.x, .y, by = c("FieldID", "FieldID_Short", "Plot", "FieldID_Plot")))
 ```
 
-# ALGEMENE INFORMATIE
+```{r}
+merged_df <- merged_df %>%
+  mutate(
+    texture_en = recode(Soil_Texture,
+      "Sa"     = "Sand",
+      "LoSa"   = "Loamy Sand",
+      "SaLo"   = "Sandy Loam",
+      "Lo"     = "Loam",
+      "SiLo"   = "Silt Loam",
+      "SiClLo" = "Silty Clay Loam",
+      "ClLo"   = "Clay Loam",
+      "SaClLo" = "Sandy Clay Loam",
+      "SiCl"   = "Silty Clay",
+      "Cl"     = "Clay",
+    ),
+    texture_nl = recode(Soil_Texture,
+      "Sa"     = "Zand",
+      "LoSa"   = "Lemig zand",
+      "SaLo"   = "Zandige leem",
+      "Lo"     = "Leem",
+      "SiLo"   = "Siltig leem",
+      "SiClLo" = "Siltig kleileem",
+      "ClLo"   = "Kleileem",
+      "SaClLo" = "Zandige kleileem",
+      "SiCl"   = "Siltige klei",
+      "Cl"     = "Klei",
+    )
+  )
+
+```
+
+# ALGEMENE PERCEELSINFORMATIE
 
 \begin{tcolorbox}[
   width=\textwidth,
-  colback=green!5,
-  colframe=green!40!black,
+  colback=micosfill!50!white,
+  colframe=micosborder!40!black,
   boxrule=0.5pt,
   arc=3pt
 ]
@@ -187,7 +220,7 @@ Plot C: `r tmp <- merged_df %>% filter(FieldID == params$FieldID, Plot == "C") %
 paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
 
 
-\textbf{Grondsoort:}  `r merged_df %>% filter(FieldID == params$FieldID, !is.na(Soil_Texture)) %>%  pull(Soil_Texture) %>%  unique()`\\
+\textbf{Grondsoort:}  `r merged_df %>% filter(FieldID == params$FieldID, !is.na(texture_nl)) %>%  pull(Soil_Texture) %>%  unique()`\\
 
 \end{tabular}
 \end{tcolorbox}
@@ -198,9 +231,21 @@ paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
 
 ## Bodemparameters
 
-In onderstaande tabel vindt u de resultaten van de gemeten bodemparameters. Een gemiddelde waarde met de standaardafwijking wordt gerapporteerd. Daarnaast worden de waardes gemeten per locatie (A, B en C) ook apart weergegeven.
+\begin{multicols}{2}
+
+  % Left column: text
+  In onderstaande tabel vindt u de resultaten van de gemeten bodemparameters. Een gemiddelde waarde met de standaardafwijking (SE) wordt gerapporteerd overheen de drie locaties (A, B en C). Daarnaast worden de waarden gemeten per locatie ook apart weergegeven in de laatste kolom.
 
 Aangezien dit een wetenschappelijk onderzoek is met een specifieke focus op microplastics, kunnen wij geen uitspraken doen over de bodemkwaliteit, noch advies geven over mogelijke maatregelen om deze te verbeteren. Voor begeleiding of interpretatie met betrekking tot bodemkwaliteit kan u zich wenden tot een gespecialiseerde adviseur of landbouwconsulent.
+
+\columnbreak
+
+  % Right column: figure
+  \includegraphics[width=.5\textwidth]{1_illustrations/bodemparameters.png}
+ 
+
+\end{multicols}
+
 
 ```{r, include = FALSE}
 format_sig <- function(x) {
@@ -345,11 +390,11 @@ gt_df <- table_df %>%
 tab <- gt::gt(gt_df) %>%
   gt::tab_header(
     title = gt::md("**ANALYSERESULTATEN**"),
-    subtitle = "Samenvatting parameters"
+    subtitle = "Samenvatting bodemparameters"
   ) %>%
   gt::cols_label(
     Parameter = "Parameter",
-    Analyse_resultaat = md("Gemiddelde waarde<br>(gem. ± SE<sup>1</sup>))"),
+    Analyse_resultaat = md("Uw gemiddelde waarde<br>(gem. ± SE<sup>1</sup>))"),
     Eenheid = "Eenheid",
     A = "A",
     B = "B",
@@ -364,17 +409,17 @@ tab <- gt::gt(gt_df) %>%
   ) %>%
 
   gt::tab_spanner(
-    label = "Resultaat per Plot",
+    label = "Waarde per locatie",
     columns = c(A, B, C)
   ) %>%
   gtExtras::gt_theme_538() %>%
   gt::fmt_markdown(columns = "Parameter") %>%
   gt::tab_options(
-    table.border.top.color = "#3E7C59",
+    table.border.top.color = "#598863",
     table.border.bottom.style = "solid",
     table.border.bottom.width = gt::px(2),
-    table.border.bottom.color = "#3E7C59",
-    heading.background.color = "#3E7C59",
+    table.border.bottom.color = "#598863",
+    heading.background.color = "#598863",
     column_labels.background.color = "#EFEFEF",
     row.striping.background_color = "#F9F9F9",
     row.striping.include_table_body = TRUE
@@ -385,7 +430,7 @@ tab <- gt::gt(gt_df) %>%
   
   # Voetnoot
   gt::tab_source_note(
-    source_note = gt::md("<sup>1</sup> SE: standaard error / standaardafwijking")  
+    source_note = gt::md("<sup>1</sup> SE: standaard error")  
       
   )
 
@@ -394,7 +439,7 @@ gt::gtsave(tab, filename = "table_nutrients.png")
 ```
 
 
-```{r echo = FALSE}
+```{r echo = FALSE, dpi = 600}
 knitr::include_graphics("table_nutrients.png")
 ```
 
@@ -404,27 +449,32 @@ knitr::include_graphics("table_nutrients.png")
 \begin{multicols}{2}
 
   % Left column: figure
-  \includegraphics[width=.4\textwidth]{figures/micos_plastic.jpg}
+  \includegraphics[width=.4\textwidth]{1_illustrations/micos_plastic.jpg}
 
 \columnbreak
 
   % Right column: text
-  In dit onderzoek focussen we ons op twee grootte-ordes van plastics op en in het veld:
+  In dit onderzoek focussen we op twee grootte-ordes van plastics alsook algemeen afval:
 
   \begin{itemize}
     \item \textbf{Microplastics}: Dit zijn plasticdeeltjes kleiner dan 5mm en onderzoeken we in de grondstalen van plot A, B en C.
-    \item \textbf{Macroplastics}: Dit zijn alle plasticdeeltjes groter dan 5 mm en hebben we op het veld verzameld tussen plot A, B en C. Maw niet overheen het gehele veld maar een vastgelegd traject.
+    \item \textbf{Macroplastics}: Dit zijn plasticdeeltjes groter dan 5 mm en hebben we op het veld verzameld tussen plot A, B en C. Maw niet overheen het gehele veld maar een vastgelegd traject.
+    \item \textbf{Afval}: Afval-categorie van deeltjes groter dan 5 mm, die naast plastic ook nog keramiek, metaal, glas, stenen, rubber en anderen bevat. Dit is ook verzameld tussen plot A, B en C.
   \end{itemize}
 
 \end{multicols}
 
+\newpage
 
 ### Tabel
-```{r}
-colnames(df_MAP)
-```
 
-In onderstaande tabel kan u uw waardes terugvinden van de microplastics, macroplastics en ook de algemene afval categorie. Deze laatste categorie omvat al het verzamelde plastic, maar ook nog keramiek, metalen, stenen, rubber, glass en anderen dat we gevonden hebben op het veld tussen locatie A en C ((bak)stenen, metaal, andere, ...). Omdat dit maar één waarde geeft zal u bij waarde per locatie enkel bij A een resultaat zien en bij de andere NVT (niet van toepassing).
+In onderstaande tabel vindt u **uw gemeten waarden** terugvinden van de microplastics, macroplastics en de algemene afval categorie. De informatie over deze categoriën kan u hierboven terugvinden. Voor macroplastics en de afvalcategorie wordt slechts één waarde per perceel gerapporteerd. Daarom is hiervoor enkel een meetwaarde beschikbaar voor locatie A; locatie B is in dit geval niet van toepassing (NVT).
+
+Om uw resultaten in een bredere context te plaatsen, rapporteren we ook de gemiddelde plasticconcentraties die we gemeten hebben over alle locaties A en C, gebaseerd op de 240 velden die binnen het MiCoS-project bemonsterd werden. Dit biedt u een eerste indicatie van hoe de plasticconcentratie in uw perceel zich verhoudt tot het algemene gemiddelde van percelen in België, Nederland en Luxemburg.
+
+Aangezien microplastics met het blote oog niet zichtbaar zijn, vertalen we de gemeten concentraties naar een herkenbare vergelijking. Ter illustratie: een concentratie van ongeveer 10.000 microplastics per kilogram droge grond komt ruwweg overeen met het volume van **één rijstkorrel NOG TE BEREKENEN**, verspreid over die hoeveelheid bodem. Dit benadrukt dat het om zeer kleine deeltjes gaat die wijd verspreid in de bodem aanwezig zijn.
+
+Op basis van de huidige wetenschappelijke kennis zijn er nog veel onzekerheden over de effecten van microplastics op bodemgezondheid, bodemleven en gewasproductie. Binnen het MiCoS-project wordt de impact van microplastics op deze aspecten verder onderzocht. De resultaten en nieuwe inzichten zullen verder met de u gecommuniceerd worden via de MiCoS-nieuwsbrief. 
 
 ```{r include = FALSE}
 # Variabelen
@@ -438,8 +488,9 @@ meta <- tibble::tribble(
   "Total_macromaterials", "Afval",        "Afval / hectare"
 )
 ```
+
 ```{r  include = FALSE}
-# --- 1) Mijn waardes (single FieldID) ---
+# --- 1) Mijn waarden (single FieldID) ---
 summary_df <- df_field %>%
   select(any_of(vars)) %>%
   mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
@@ -464,13 +515,13 @@ summary_df <- df_field %>%
          se   = round(se, 1)) %>%
   left_join(meta, by = "Variabele") %>%
   mutate(
-    Mijn_waardes = case_when(
+    Mijn_waarden = case_when(
       is.na(mean) ~ NA_character_,
       is.na(se) | se == 0 ~ sprintf("%.1f", mean),
       TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se))
     )
   ) %>%
-  select(Variabele, Parameter, Mijn_waardes, Eenheid)
+  select(Variabele, Parameter, Mijn_waarden, Eenheid)
 
 ```
 
@@ -498,7 +549,7 @@ replicaten_df <- df_field %>%
 ```
 
 ```{r  include = FALSE}
-# --- 2) Alle MiCoS waardes (all plots) ---
+# --- 2) Alle MiCoS waarden (all plots) ---
 all_summary_df <- merged_df %>%
   select(any_of(vars)) %>%
   mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
@@ -523,13 +574,13 @@ all_summary_df <- merged_df %>%
          se   = round(se, 1)) %>%
   left_join(meta, by = "Variabele") %>%
   mutate(
-    Alle_MiCoS_waardes = case_when(
+    Alle_MiCoS_waarden = case_when(
       is.na(mean) ~ NA_character_,
       is.na(se) | se == 0 ~ sprintf("%.1f", mean),
       TRUE ~ paste0(sprintf("%.1f", mean), " \u00B1 ", sprintf("%.1f", se))
     )
   ) %>%
-  select(Variabele, Alle_MiCoS_waardes)
+  select(Variabele, Alle_MiCoS_waarden)
 
 ```
 
@@ -538,7 +589,7 @@ all_summary_df <- merged_df %>%
 table_df <- summary_df %>%
   left_join(all_summary_df, by = "Variabele") %>%
   left_join(replicaten_df, by = "Variabele") %>%
-  select(Parameter, Mijn_waardes, Alle_MiCoS_waardes, Eenheid, A, C, )
+  select(Parameter, Mijn_waarden, Alle_MiCoS_waarden, Eenheid, A, C, )
 
 
 ```
@@ -548,14 +599,14 @@ tab <- gt::gt(table_df) %>%
   # Header
   gt::tab_header(
     title = gt::md("**ANALYSERESULTATEN**"),
-    subtitle = "Samenvatting parameters"
+    subtitle = "Samenvatting plasticparameters"
   ) %>%
   
   # Labels
   gt::cols_label(
     Parameter = "Parameter",
-    Mijn_waardes = md("Uw waardes<br>(gem. ± SE)"),
-    Alle_MiCoS_waardes = md("Alle waardes<br>(gem. ± SE)"),
+    Mijn_waarden = md("Uw waarden<br>(gem. ± SE<sup>1</sup>)"),
+    Alle_MiCoS_waarden = md("MiCoS<sup>2</sup> waarden<br>(gem. ± SE<sup>1</sup>)"),
     Eenheid = "Eenheid",
     A = "A",
     C = "C"
@@ -565,8 +616,8 @@ tab <- gt::gt(table_df) %>%
   # Column widths
   gt::cols_width(
     Parameter ~ gt::px(200),
-    Mijn_waardes ~ gt::px(180),
-    Alle_MiCoS_waardes ~ gt::px(150),  # nieuwe kolom iets breder
+    Mijn_waarden ~ gt::px(180),
+    Alle_MiCoS_waarden ~ gt::px(150),  # nieuwe kolom iets breder
     Eenheid ~ gt::px(100)
    
   ) %>%
@@ -579,23 +630,31 @@ tab <- gt::gt(table_df) %>%
   
     gt::sub_missing(
     columns = gt::everything(),
-    missing_text = "NVT>") %>%
+    missing_text = gt::md("NVT<sup>3</sup>")) %>%
   
-  # Voeg voetnoot bij kolomtitel "Mijn waardes" en "Alle MiCoS waardes"
-  tab_footnote(
-    footnote = "NVT = Niet van toepassing",
-    locations = cells_column_labels(columns = c(Mijn_waardes, Alle_MiCoS_waardes))
+  # Voeg voetnoot bij kolomtitel "Mijn waarden" en "Alle MiCoS waarden"
+  # Footnote 1: SE / SD
+  gt::tab_footnote(
+    footnote = "Standaard error"
+  ) %>%
+  # Footnote 2: MiCoS uitleg
+  gt::tab_footnote(
+    footnote = "Omvat alle A- en C-stalen van de 240 bemonsterde velden binnen het MiCoS-project",
+  ) %>%
+  # Footnote 3: NVT
+  gt::tab_footnote(
+    footnote = "NVT = Niet van toepassing"
   ) %>%
   
   # Theme
   gtExtras::gt_theme_538() %>%
   gt::fmt_markdown(columns = "Parameter") %>%
   gt::tab_options(
-    table.border.top.color = "#3E7C59",
+    table.border.top.color = "#598863",
     table.border.bottom.style = "solid",
     table.border.bottom.width = gt::px(2),
-    table.border.bottom.color = "#3E7C59",
-    heading.background.color = "#3E7C59",
+    table.border.bottom.color = "#598863",
+    heading.background.color = "#598863",
     column_labels.background.color = "#EFEFEF",
     row.striping.background_color = "#F9F9F9",
     row.striping.include_table_body = TRUE
@@ -613,15 +672,17 @@ gt::gtsave(tab, filename = "table_plastics.png")
 
 ```
 
-```{r echo = FALSE}
+```{r echo = FALSE, dpi = 600}
 knitr::include_graphics("table_plastics.png")
 ```
 
-### Grafiek microplastics
+### Microplastics
 
-In de onderstaande grafiek ziet u de resultaten van alle gemeten microplasticconcentraties over de 240 onderzochte velden. De gegevens worden weergegeven in drie afzonderlijke grafieken: de eerste toont alle metingen, de tweede beperkt zich tot metingen tot 25.000 microplasticdeeltjes (waar de grootste concentratie van resultaten ligt), en de derde grafiek toont de metingen boven de 25.000 deeltjes. Uw resultaten zijn in oranje weergegeven, met het aantal microplasticdeeltjes per kilogram grond vermeld. Dit geeft een indicatie van hoe de concentraties in uw veld zich verhouden tot de andere metingen.
+In de onderstaande grafiek ziet u een visualisatie van bovenstaande tabel. Uw waardes zijn telkens in het oranje aangeduid met de hoeveelheid ernaast geschreven. 
 
-Op dit moment kunnen we nog niet beoordelen of deze waarden een invloed hebben op de gezondheid van bodem en planten, of of ze als laag of hoog beschouwd moeten worden. Het onderzoek is nog lopende, en de verdere resultaten zullen via de nieuwsbrief worden gedeeld.
++ De eerste grafiek weergeeft de microplastic resultaten
++ De tweede grafiek weergeeft de macroplastic resultaten
++ De derde grafiek weergeeft de afval resultaten. 
 
 ```{r include = FALSE}
 highlight_id <- params$FieldID
@@ -656,7 +717,7 @@ make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL,
     geom_boxplot(
       data = data,
       aes(x = "", y = .data[[yvar]]),
-      size = 1.2, width = 0.25, outlier.shape = NA,
+      size = 0.5, width = 0.25, outlier.shape = NA,
       fill = "white", color = "black", alpha = 0.3
     ) +
     # 2) Grey points (other farmers) on top of boxplot
@@ -677,7 +738,7 @@ make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL,
     geom_text(
       data = highlight_df,
       aes(x = "", y = .data[[yvar]],
-          label = format(.data[[yvar]], big.mark = " ", scientific = FALSE)),
+          label = format(round(.data[[yvar]], 0), big.mark = " ", scientific = FALSE, nsmall = 0)),
       nudge_x = 0.30,
       nudge_y = 0,
       size = 3.4,
@@ -692,7 +753,7 @@ make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL,
       )
     ) +
     scale_y_continuous(
-      labels = function(x) format(x, big.mark = " ", scientific = FALSE, digits = 0, nsmall = 0),
+      labels = function(x) format(x, big.mark = " ", scientific = FALSE, nsmall = 0),
       breaks = y_breaks
     ) +
     coord_cartesian(ylim = ylimits) +
@@ -702,7 +763,7 @@ make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL,
       color = NULL
     ) +
     ylab(y_label) +
-    theme_minimal(base_size = 12) +
+    theme_minimal(base_size = 10) +
     theme(
       axis.text.x  = element_blank(),
       axis.title.x = element_blank(),
@@ -722,7 +783,7 @@ p_MP <- make_plot(
   ylimits = c(0, 600000),
   title = "Microplastics",
   y_breaks = seq(0, 600000, 100000),
-  y_label = "Aantal microplastics per kg droge grond"
+  y_label = "Microplastics/ kg droge grond"
 )
 
 p_plastics <- make_plot(
@@ -731,16 +792,16 @@ p_plastics <- make_plot(
   ylimits = c(0, 2000),
   title = "Macroplastics",
   y_breaks = seq(0, 2000, 500),
-  y_label = "Aantal macroplastics per hectare"
+  y_label = "Macroplastics/ hectare"
 )
 
 p_macromaterials <- make_plot(
   plot_df,
   yvar = "Total_macromaterials",
   ylimits = c(0, 4000),
-  title = "Totale macromaterialen",
+  title = "Afval",
   y_breaks = seq(0, 4000, 1000),
-  y_label = "Aantal totale macromaterialen per hectare"
+  y_label = "Afvalstukken/ hectare"
 )
 
 ```
@@ -759,7 +820,10 @@ combined
 ```
 
 
-Wij sluiten dit rapport graaf af met u nog eens te bedanken om deel te nemen aan dit onderzoek.
+Wij willen dit rapport graag afsluiten met onze oprechte dank voor uw deelname aan dit onderzoek.
 
-Vriendelijke groet,
+Met vriendelijke groet,
+
+Team MiCoS
 Caroline, Lisa, Benthe en Jozefien
+micos@ugent.be

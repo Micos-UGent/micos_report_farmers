@@ -5,8 +5,9 @@ output:
   pdf_document:
     latex_engine: xelatex
     number_sections: TRUE
+mainfont: "Segoe UI"
 params:
-  FieldID: "MC24_008"
+  FieldID: "MC24_009"
 header-includes:
   - \usepackage{booktabs}
   - \usepackage[table]{xcolor}
@@ -55,19 +56,16 @@ Beste landbouwer,
 
 In dit verslag vindt u de resultaten van het **MiCoS‑onderzoek** op uw perceel, waaraan u hebt deelgenomen. Het MiCoS-onderzoek werd uitgevoerd in opdracht van Universiteit Gent en heeft als doel om de microplastic concentratie in landbouwgronden van België, Nederland en Luxemburg in kaart te brengen. 
 
-Deze staalname is uitgevoerd in de periode van januari 2023 tot en met maart 2024. Tijdens deze campagne werden bodemstalen genomen voor de volgende analyses, die u ook in dit rapport terugvindt:
+Deze staalname is uitgevoerd in de periode van december 2023 tot maart 2024. Tijdens deze campagne werden bodemstalen genomen voor de volgende analyses:
 
 + Bodemparameters: pH, OC, P, N, K, Mg en Ca
 + Microplastics: plasticdeeltjes kleiner dan 5 mm
 + Macroplastics: plasticdeeltjes groter dan 5 mm
 
-Op uw perceel werden in totaal vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (A, B en C) onderzocht. Voor de microplasticanalyse zijn momenteel twee stalen (staal A en C) geanalyseerd, staal B is lopende en zal op een later moment gecommuniceerd worden. De macroplastic data is verkregen door al het plastic afval groter dan 5 mm te verzamelen tussen staalnamelocatie A en C. 
+Op uw perceel werden in vijf stalen genomen. Voor de nutriëntenanalyse zijn drie stalen (A, B en C) onderzocht. Voor de microplasticanalyse zijn twee stalen (A en C) geanalyseerd, staal B is lopende en zal op een later moment gecommuniceerd worden. De macroplastic data is verkregen door al het plastic afval groter dan 5 mm te verzamelen tussen staalnamelocatie A en C in een  breedte van zes meter. Daarnaast worden alle vijf de stalen (A-E) geanalyseerd voor de bacteriële en schimmelgemeenschap. Deze analyses vergen meer tijd en de resultaten worden eind 2026 gecommuniceerd. 
 
-Daarnaast zijn ook stalen genomen op alle vijf de locaties om de bacteriële en schimmelgemeenschap in kaart te brengen. Deze analyses vergen meer tijd en de resultaten zullen aan het einde van het MiCoS-project (voorzien in 2026) worden gedeeld met u.
+Bij vragen of opmerkingen kunt u contact opnemen via micos@ugent.be. Gelieve daarbij uw perceelcode beginnend met **MC** (bovenaan het rapport) te vermelden. Omdat onderzoek naar (micro)plastics in (landbouw)bodems nog in volle ontwikkeling is, voorzien wij bijkomende toelichting via een **webinar** die zal plaatsvinden op **30 maart om 19 uur (Nederlandstalig)** en op **2 april om 19 uur (Engelstalig)**, waarin de eerste resultaten worden geduid en in een breder kader geplaatst. Hierbij voorzien wij ruimte om vragen te stellen. Gelieve uw aanwezigheid voor deze webinar te bevestigen door te klikken op [**deze link**](https://event.ugent.be/registration/micos ) of te surfen naar https://event.ugent.be/registration/micos.
 
-Bij vragen of opmerkingen kunt u contact opnemen via micos@ugent.be. Gelieve daarbij uw perceelcode beginnend met **MC** (bovenaan het rapport) te vermelden. Omdat onderzoek naar (micro)plastics in (landbouw)bodems nog in volle ontwikkeling is, voorzien wij bijkomende toelichting via een **webinar**, waarin de eerste resultaten worden geduid en in een breder kader geplaatst. Hierbij voorzien wij ook 
-
-\newpage
 
 
 ```{r include = FALSE}
@@ -90,7 +88,7 @@ library(scales)
 library(dplyr)
 library(kableExtra)
 library(tinytex)
-
+library(forcats)
 # saving gtables as images
 library(webshot2)
 
@@ -163,7 +161,7 @@ dfs <- list(df_farmers, df_GPS, df_nutrients, df_MAP, df_MP)
 merged_df <- reduce(dfs, ~ full_join(.x, .y, by = c("FieldID", "FieldID_Short", "Plot", "FieldID_Plot")))
 ```
 
-```{r}
+```{r include = FALSE}
 merged_df <- merged_df %>%
   mutate(
     texture_en = recode(Soil_Texture,
@@ -220,7 +218,7 @@ Plot C: `r tmp <- merged_df %>% filter(FieldID == params$FieldID, Plot == "C") %
 paste0("Lat: ", tmp$Latitude_N, ", Lon: ", tmp$Longitude_E)` \\
 
 
-\textbf{Grondsoort:}  `r merged_df %>% filter(FieldID == params$FieldID, !is.na(texture_nl)) %>%  pull(Soil_Texture) %>%  unique()`\\
+\textbf{Grondsoort:}  `r merged_df %>% filter(FieldID == params$FieldID, !is.na(texture_nl)) %>%  pull(texture_nl) %>%  unique()`\\
 
 \end{tabular}
 \end{tcolorbox}
@@ -444,7 +442,7 @@ knitr::include_graphics("table_nutrients.png")
 ```
 
 
-## Plastics
+## Afval en plastics
 
 \begin{multicols}{2}
 
@@ -459,10 +457,12 @@ knitr::include_graphics("table_nutrients.png")
   \begin{itemize}
     \item \textbf{Microplastics}: Dit zijn plasticdeeltjes kleiner dan 5mm en onderzoeken we in de grondstalen van plot A, B en C.
     \item \textbf{Macroplastics}: Dit zijn plasticdeeltjes groter dan 5 mm en hebben we op het veld verzameld tussen plot A, B en C. Maw niet overheen het gehele veld maar een vastgelegd traject.
-    \item \textbf{Afval}: Afval-categorie van deeltjes groter dan 5 mm, die naast plastic ook nog keramiek, metaal, glas, stenen, rubber en anderen bevat. Dit is ook verzameld tussen plot A, B en C.
+    \item \textbf{Afval}: Afval-categorie van deeltjes groter dan 5 mm, die naast plastic ook nog keramiek, metaal, glas, organisch materiaal, rubber en varia bevat. Dit is ook verzameld tussen plot A, B en C.
   \end{itemize}
 
 \end{multicols}
+
+
 
 \newpage
 
@@ -472,9 +472,11 @@ In onderstaande tabel vindt u **uw gemeten waarden** terugvinden van de micropla
 
 Om uw resultaten in een bredere context te plaatsen, rapporteren we ook de gemiddelde plasticconcentraties die we gemeten hebben over alle locaties A en C, gebaseerd op de 240 velden die binnen het MiCoS-project bemonsterd werden. Dit biedt u een eerste indicatie van hoe de plasticconcentratie in uw perceel zich verhoudt tot het algemene gemiddelde van percelen in België, Nederland en Luxemburg.
 
-Aangezien microplastics met het blote oog niet zichtbaar zijn, vertalen we de gemeten concentraties naar een herkenbare vergelijking. Ter illustratie: een concentratie van ongeveer 10.000 microplastics per kilogram droge grond komt ruwweg overeen met het volume van **één rijstkorrel NOG TE BEREKENEN**, verspreid over die hoeveelheid bodem. Dit benadrukt dat het om zeer kleine deeltjes gaat die wijd verspreid in de bodem aanwezig zijn.
+Aangezien microplastics met het blote oog niet zichtbaar zijn, vertalen we de gemeten concentraties naar een herkenbare vergelijking. Ter illustratie: een concentratie van ongeveer 10.000 microplastics per kilogram droge grond komt ruwweg overeen met het volume van 0.5-2 rijstkorrels, verspreid over die hoeveelheid bodem. Dit benadrukt dat het om zeer kleine deeltjes gaat die wijd verspreid in de bodem aanwezig zijn.
 
 Op basis van de huidige wetenschappelijke kennis zijn er nog veel onzekerheden over de effecten van microplastics op bodemgezondheid, bodemleven en gewasproductie. Binnen het MiCoS-project wordt de impact van microplastics op deze aspecten verder onderzocht. De resultaten en nieuwe inzichten zullen verder met de u gecommuniceerd worden via de MiCoS-nieuwsbrief. 
+
+Indien bij de categorie macroplastics en afval geen waarde staat (wel NVT) wil dit zeggen dat er geen afval is aangetroffen op uw veld. Dit is geen garantie dat er geen afval op uw veld lag, maar had te maken met de condities van de staalname die dag (recent geploegd veld, sneeuw en/of dense begroeiing van het gewas)
 
 ```{r include = FALSE}
 # Variabelen
@@ -635,15 +637,15 @@ tab <- gt::gt(table_df) %>%
   # Voeg voetnoot bij kolomtitel "Mijn waarden" en "Alle MiCoS waarden"
   # Footnote 1: SE / SD
   gt::tab_footnote(
-    footnote = "Standaard error"
+    footnote = "1 Standaard error"
   ) %>%
   # Footnote 2: MiCoS uitleg
   gt::tab_footnote(
-    footnote = "Omvat alle A- en C-stalen van de 240 bemonsterde velden binnen het MiCoS-project",
+    footnote = "2 Omvat alle A- en C-stalen van de 240 bemonsterde velden binnen het MiCoS-project",
   ) %>%
   # Footnote 3: NVT
   gt::tab_footnote(
-    footnote = "NVT = Niet van toepassing"
+    footnote = "3 NVT = Niet van toepassing"
   ) %>%
   
   # Theme
@@ -676,13 +678,13 @@ gt::gtsave(tab, filename = "table_plastics.png")
 knitr::include_graphics("table_plastics.png")
 ```
 
-### Microplastics
+### Grafiek microplastics
 
-In de onderstaande grafiek ziet u een visualisatie van bovenstaande tabel. Uw waardes zijn telkens in het oranje aangeduid met de hoeveelheid ernaast geschreven. 
+In de onderstaande grafiek ziet u een visualisatie van bovenstaande tabel. In deze grafiek staan de resultaten van alle velden waar stalen genomen zijn voor MiCoS aangeduid in het grijs, maw 1 grijs bolletje is 1  waarde van een veld. Uw waardes zijn telkens in het oranje aangeduid met de hoeveelheid ernaast geschreven. 
 
 + De eerste grafiek weergeeft de microplastic resultaten
 + De tweede grafiek weergeeft de macroplastic resultaten
-+ De derde grafiek weergeeft de afval resultaten. 
++ De derde grafiek weergeeft de afval resultaten (omvat plastic, rubber, keramiek, glas, metalen, organisch materiaal en varia)
 
 ```{r include = FALSE}
 highlight_id <- params$FieldID
@@ -725,7 +727,7 @@ make_plot <- function(data, yvar, ylimits = NULL, title = NULL, y_breaks = NULL,
       data = other_df,
       aes(x = "", y = .data[[yvar]], color = highlight),
       width = 0.08, height = 0,
-      size = 2, alpha = 0.6
+      size = 1, alpha = 0.6
     ) +
     # 3) Highlighted points on top
     geom_jitter(
@@ -806,11 +808,10 @@ p_macromaterials <- make_plot(
 
 ```
 
-`
 ```{r warning = FALSE, echo = FALSE}
 # --- 3) Combineer de drie plots naast elkaar ---
-combined <- p_MP + p_plastics + p_macromaterials + 
-  plot_layout(ncol = 3) & 
+combined <- p_MP + p_plastics + p_macromaterials +
+  plot_layout(ncol = 3) &
   theme(
     axis.title.y = element_text(face = "bold") # y-as titel blijft bold
   )
